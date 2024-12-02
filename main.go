@@ -13,13 +13,13 @@ import (
 
 const dbConnStr = "host=postgres user=postgres password=postgres dbname=database sslmode=disable"
 
-func listenEvents() {
+func listenEvents() *nats.Subscription {
 	// Connect to a NATS server
 	nc, err := nats.Connect("nats://nats:4222")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer nc.Close()
+	// defer nc.Close()
 
 	log.Println("Connected to NATS server")
 	// Subscribe to a subject
@@ -29,7 +29,7 @@ func listenEvents() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer sub.Unsubscribe()
+	return sub
 }
 
 func insertOrder() {
@@ -146,7 +146,8 @@ func insertOrder() {
 }
 
 func main() {
-	go listenEvents()
+	sub := listenEvents()
+	defer sub.Unsubscribe()
 
 	for {
 		insertOrder()
