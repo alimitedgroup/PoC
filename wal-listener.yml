@@ -1,0 +1,25 @@
+listener:
+  slotName: replication_slot
+  refreshConnection: 30s
+  heartbeatInterval: 10s
+  filter:
+    tables:
+      order_event:
+        - insert
+  # topicsMap:
+  #   schema_table_name: "public"
+logger:
+  level: info
+  fmt: json
+database:
+  host: postgres
+  port: 5432
+  name: database
+  user: postgres
+  password: postgres
+  debug: true
+publisher:
+  type: nats
+  address: nats:4222
+  topic: "warehouse_events"
+  topicPrefix: ""

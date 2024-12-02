@@ -1,0 +1,63 @@
+volumes:
+    db_data:
+
+services:
+    postgres:
+        build:
+            context: .
+            dockerfile: ./postgres_Dockerfile
+        ports:
+            - 5432:5432
+        volumes:
+            - db_data:/var/lib/postgresql/data
+            - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+        environment:
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_USER=postgres
+            - POSTGRES_DB=database
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+    nats:
+        image: nats:2.10-alpine
+        command:
+            # - "--cluster"
+            # - "nats://0.0.0.0:6222"
+            - "--http_port"
+            - "8222"
+            - "--port"
+            - "4222"
+            - "--js"
+            - "--debug"
+        ports:
+            - "8222:8222"
+            - "6222:6222"
+            - "4222:4222"
+        healthcheck:
+            test: ["CMD-SHELL", "exit 0"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+    
+    app:
+        build:
+            context: .
+            dockerfile: ./Dockerfile
+        restart: always
+        depends_on:
+            postgres:
+                condition: service_healthy
+            nats:
+                condition: service_healthy
+
+    transaction_logger:
+        image: ihippik/wal-listener
+        volumes:
+            - ./wal-listener.yml:/app/config.yml
+        depends_on:
+            postgres:
+                condition: service_healthy
+            nats:
+                condition: service_healthy
