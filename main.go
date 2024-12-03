@@ -7,21 +7,14 @@ import (
 	"log"
 	"time"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx"
+	_ "github.com/jackc/pgx/stdlib"
 	"github.com/nats-io/nats.go"
 )
 
 const dbConnStr = "host=postgres user=postgres password=postgres dbname=database sslmode=disable"
 
-func listenEvents() *nats.Subscription {
-	// Connect to a NATS server
-	nc, err := nats.Connect("nats://nats:4222")
-	if err != nil {
-		log.Fatal(err)
-	}
-	// defer nc.Close()
-
-	log.Println("Connected to NATS server")
+func listenEvents(nc *nats.Conn) *nats.Subscription {
 	// Subscribe to a subject
 	sub, err := nc.Subscribe("warehouse_events.*", func(m *nats.Msg) {
 		log.Printf("Received a message: %s\n", string(m.Data))
@@ -49,7 +42,7 @@ func insertOrder() {
 	var err error
 
 	// Connect to the database
-	db, err := sql.Open("postgres", dbConnStr)
+	db, err := sql.Open("pgx", dbConnStr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -61,7 +54,6 @@ func insertOrder() {
 	}
 	fmt.Println("Connected to PostgreSQL!")
 
-	// Example Query: Insert using a prepared statement
 	tx, err := db.Begin()
 	if err != nil {
 		log.Fatal(err)
@@ -146,7 +138,14 @@ func insertOrder() {
 }
 
 func main() {
-	sub := listenEvents()
+	// Connect to a NATS server
+	nc, err := nats.Connect("nats://nats:4222")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer nc.Close()
+	log.Println("Connected to NATS server")
+	sub := listenEvents(nc)
 	defer sub.Unsubscribe()
 
 	for {
