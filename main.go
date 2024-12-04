@@ -219,6 +219,7 @@ func InsertStockMerce(db *sql.DB, merceId int64, stock int64) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("new stock (%d items) of merceId: %v\n", stock, merceId)
 
 	addStockEvent := AddStockEvent{
 		MerceId: merceId,
