@@ -42,90 +42,94 @@ func ListenEvents(nc *nats.Conn) *nats.Subscription {
 
 type Repo struct{}
 
-func (r *Repo) CreateOrder(tx *sql.Tx, note string) int64 {
+func (r *Repo) CreateOrder(tx *sql.Tx, note string) (int64, error) {
 	var orderId int64
 	stmt, err := tx.Prepare("INSERT INTO orders (note) VALUES ($1) RETURNING id")
 	if err != nil {
-		log.Fatal(err)
+		return 0, err
 	}
 	defer stmt.Close()
 
 	err = stmt.QueryRow(note).Scan(&orderId)
 	if err != nil {
-		log.Fatal(err)
+		return 0, err
 	}
 
 	log.Printf("Inserted order with id: %d\n", orderId)
-	return orderId
+	return orderId, nil
 }
 
-func (r *Repo) InsertOrderMerce(tx *sql.Tx, orderId int64, merceId int64, stock int64) {
+func (r *Repo) InsertOrderMerce(tx *sql.Tx, orderId int64, merceId int64, stock int64) error {
 	stmt, err := tx.Prepare("INSERT INTO order_merce (order_id, merce_id, stock) VALUES ($1, $2, $3)")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer stmt.Close()
 
 	res, err := stmt.Exec(orderId, merceId, stock)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	rowCount, err := res.RowsAffected()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if rowCount != 1 {
-		log.Fatalf("Expected to insert 1 row, inserted %d rows\n", rowCount)
+		return fmt.Errorf("Expected to insert 1 row, inserted %d rows\n", rowCount)
 	}
+
+	return nil
 }
 
-func (r *Repo) IncreaseStockMerce(tx *sql.Tx, merceId int64, stock int64) {
+func (r *Repo) IncreaseStockMerce(tx *sql.Tx, merceId int64, stock int64) error {
 	stmt, err := tx.Prepare("UPDATE merce SET stock=stock+$2 WHERE id = $1")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer stmt.Close()
 
 	res, err := stmt.Exec(merceId, stock)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	rowCount, err := res.RowsAffected()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if rowCount != 1 {
-		log.Fatalf("Expected to update 1 row, updated %d rows\n", rowCount)
+		return fmt.Errorf("Expected to update 1 row, updated %d rows\n", rowCount)
 	}
+	return nil
 }
 
-func (r *Repo) DecrementStockMerce(tx *sql.Tx, merceId int64, stock int64) {
+func (r *Repo) DecrementStockMerce(tx *sql.Tx, merceId int64, stock int64) error {
 	stmt, err := tx.Prepare("UPDATE merce SET stock=stock-$2 WHERE id = $1")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer stmt.Close()
 
 	res, err := stmt.Exec(merceId, stock)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	rowCount, err := res.RowsAffected()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if rowCount != 1 {
-		log.Fatalf("Expected to update 1 row, updated %d rows\n", rowCount)
+		return fmt.Errorf("Expected to update 1 row, updated %d rows\n", rowCount)
 	}
+	return nil
 }
 
-func (r *Repo) InsertAddMerceStockEvent(tx *sql.Tx, addStockEvent AddStockEvent) {
+func (r *Repo) InsertAddMerceStockEvent(tx *sql.Tx, addStockEvent AddStockEvent) error {
 	stmt, err := tx.Prepare("INSERT INTO merce_event (message) VALUES ($1)")
 	if err != nil {
 		log.Fatal(err)
@@ -134,58 +138,69 @@ func (r *Repo) InsertAddMerceStockEvent(tx *sql.Tx, addStockEvent AddStockEvent)
 
 	data, err := json.Marshal(addStockEvent)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	res, err := stmt.Exec(data)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	rowCount, err := res.RowsAffected()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if rowCount != 1 {
-		log.Fatalf("Expected to insert 1 row, inserted %d rows\n", rowCount)
+		return fmt.Errorf("Expected to insert 1 row, inserted %d rows\n", rowCount)
 	}
+
+	return nil
 }
 
-func (r *Repo) InsertCreateOrderEvent(tx *sql.Tx, orderEvent CreateOrderEvent) {
+func (r *Repo) InsertCreateOrderEvent(tx *sql.Tx, orderEvent CreateOrderEvent) error {
 	stmt, err := tx.Prepare("INSERT INTO order_event (message) VALUES ($1)")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer stmt.Close()
 
 	data, err := json.Marshal(orderEvent)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	res, err := stmt.Exec(data)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	rowCount, err := res.RowsAffected()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if rowCount != 1 {
-		log.Fatalf("Expected to insert 1 row, inserted %d rows\n", rowCount)
+		return fmt.Errorf("Expected to insert 1 row, inserted %d rows\n", rowCount)
+	}
+
+	return nil
+}
+
+func (r *Repo) Finalize(tx *sql.Tx, err error) {
+	// transaction handling, abort if err is not nil
+	if err != nil {
+		if e := tx.Rollback(); e != nil {
+			log.Fatalf("error rolling back transaction: %v", e)
+		}
+	} else {
+		if e := tx.Commit(); e != nil {
+			log.Fatalf("error committing transaction: %v", e)
+		}
 	}
 }
 
-func (r *Repo) Commit(tx *sql.Tx) {
-	if err := tx.Commit(); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func InsertStockMerce(db *sql.DB) {
+func InsertStockMerce(db *sql.DB) error {
 	addStockEvent := AddStockEvent{
 		MerceId: 1,
 		Stock:   10,
@@ -194,17 +209,25 @@ func InsertStockMerce(db *sql.DB) {
 
 	tx, err := db.Begin()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	repo := Repo{}
-	defer repo.Commit(tx)
+	defer repo.Finalize(tx, err)
 
-	repo.IncreaseStockMerce(tx, addStockEvent.MerceId, addStockEvent.Stock)
-	repo.InsertAddMerceStockEvent(tx, addStockEvent)
+	err = repo.IncreaseStockMerce(tx, addStockEvent.MerceId, addStockEvent.Stock)
+	if err != nil {
+		return err
+	}
+	err = repo.InsertAddMerceStockEvent(tx, addStockEvent)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func InsertOrder(db *sql.DB) {
+func InsertOrder(db *sql.DB) error {
 	orderEvent := CreateOrderEvent{
 		Note: "test order",
 		Merci: []OrderMerce{
@@ -219,18 +242,32 @@ func InsertOrder(db *sql.DB) {
 
 	tx, err := db.Begin()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	repo := Repo{}
-	defer repo.Commit(tx)
+	defer repo.Finalize(tx, err)
 
-	orderEvent.OrderId = repo.CreateOrder(tx, orderEvent.Note)
-	for _, merce := range orderEvent.Merci {
-		repo.InsertOrderMerce(tx, orderEvent.OrderId, merce.MerceId, merce.Stock)
-		repo.DecrementStockMerce(tx, merce.MerceId, merce.Stock)
+	orderEvent.OrderId, err = repo.CreateOrder(tx, orderEvent.Note)
+	if err != nil {
+		return err
 	}
-	repo.InsertCreateOrderEvent(tx, orderEvent)
+
+	for _, merce := range orderEvent.Merci {
+		err = repo.InsertOrderMerce(tx, orderEvent.OrderId, merce.MerceId, merce.Stock)
+		if err != nil {
+			return err
+		}
+		err = repo.DecrementStockMerce(tx, merce.MerceId, merce.Stock)
+		if err != nil {
+			return err
+		}
+	}
+	err = repo.InsertCreateOrderEvent(tx, orderEvent)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func main() {
@@ -255,11 +292,17 @@ func main() {
 	if err := db.Ping(); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Connected to PostgreSQL!")
+	log.Println("Connected to PostgreSQL!")
 
 	for {
-		InsertStockMerce(db)
-		InsertOrder(db)
+		err = InsertStockMerce(db)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = InsertOrder(db)
+		if err != nil {
+			log.Fatal(err)
+		}
 		time.Sleep(1 * time.Second)
 	}
 }
