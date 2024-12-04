@@ -11,6 +11,12 @@ CREATE TABLE IF NOT EXISTS order_event (
     created_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS merce_event (
+    id SERIAL PRIMARY KEY,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS orders (
     id SERIAL PRIMARY KEY,
     note TEXT,

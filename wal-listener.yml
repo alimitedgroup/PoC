@@ -6,8 +6,8 @@ listener:
     tables:
       order_event:
         - insert
-  # topicsMap:
-  #   schema_table_name: "public"
+      merce_event:
+        - insert
 logger:
   level: info
   fmt: json

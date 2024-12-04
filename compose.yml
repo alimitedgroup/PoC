@@ -53,7 +53,7 @@ services:
                 condition: service_healthy
 
     transaction_logger:
-        image: ihippik/wal-listener
+        image: ihippik/wal-listener:v2.7.1
         volumes:
             - ./wal-listener.yml:/app/config.yml
         depends_on:
