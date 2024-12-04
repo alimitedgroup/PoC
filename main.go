@@ -19,14 +19,14 @@ type AddStockEvent struct {
 	Stock   int64 `json:"stock"`
 }
 
-type OrderMerce struct {
+type MerceStock struct {
 	MerceId int64 `json:"merce_id"`
 	Stock   int64 `json:"stock"`
 }
 type CreateOrderEvent struct {
 	OrderId int64        `json:"order_id"`
 	Note    string       `json:"note"`
-	Merci   []OrderMerce `json:"merci"`
+	Merci   []MerceStock `json:"merci"`
 }
 
 func ListenEvents(nc *nats.Conn) *nats.Subscription {
@@ -202,11 +202,7 @@ func (r *Repo) FinalizeTransaction(tx *sql.Tx, err error) {
 	}
 }
 
-func InsertStockMerce(db *sql.DB) error {
-	addStockEvent := AddStockEvent{
-		MerceId: 1,
-		Stock:   10,
-	}
+func InsertStockMerce(db *sql.DB, merceId int64, stock int64) error {
 	var err error
 
 	tx, err := db.Begin()
@@ -219,9 +215,14 @@ func InsertStockMerce(db *sql.DB) error {
 		repo.FinalizeTransaction(tx, err)
 	}()
 
-	err = repo.IncreaseStockMerce(tx, addStockEvent.MerceId, addStockEvent.Stock)
+	err = repo.IncreaseStockMerce(tx, merceId, stock)
 	if err != nil {
 		return err
+	}
+
+	addStockEvent := AddStockEvent{
+		MerceId: merceId,
+		Stock:   stock,
 	}
 	err = repo.InsertAddMerceStockEvent(tx, addStockEvent)
 	if err != nil {
@@ -231,17 +232,7 @@ func InsertStockMerce(db *sql.DB) error {
 	return nil
 }
 
-func InsertOrder(db *sql.DB) error {
-	orderEvent := CreateOrderEvent{
-		Note: "test order",
-		Merci: []OrderMerce{
-			{
-				MerceId: 1,
-				Stock:   3,
-			},
-		},
-	}
-
+func InsertOrder(db *sql.DB, note string, merci []MerceStock) error {
 	var err error
 
 	tx, err := db.Begin()
@@ -254,13 +245,13 @@ func InsertOrder(db *sql.DB) error {
 		repo.FinalizeTransaction(tx, err)
 	}()
 
-	orderEvent.OrderId, err = repo.CreateOrder(tx, orderEvent.Note)
+	orderId, err := repo.CreateOrder(tx, note)
 	if err != nil {
 		return err
 	}
 
-	for _, merce := range orderEvent.Merci {
-		err = repo.InsertOrderMerce(tx, orderEvent.OrderId, merce.MerceId, merce.Stock)
+	for _, merce := range merci {
+		err = repo.InsertOrderMerce(tx, orderId, merce.MerceId, merce.Stock)
 		if err != nil {
 			return err
 		}
@@ -269,6 +260,13 @@ func InsertOrder(db *sql.DB) error {
 			return err
 		}
 	}
+
+	orderEvent := CreateOrderEvent{
+		OrderId: orderId,
+		Note:    note,
+		Merci:   merci,
+	}
+
 	err = repo.InsertCreateOrderEvent(tx, orderEvent)
 	if err != nil {
 		return err
@@ -300,12 +298,24 @@ func main() {
 	}
 	log.Println("Connected to PostgreSQL!")
 
+	merci := []MerceStock{
+		{
+			MerceId: 1,
+			Stock:   1,
+		},
+	}
+	orderNote := "test order note"
+	var newStock int64 = 10
+
 	for {
-		err = InsertStockMerce(db)
-		if err != nil {
-			log.Fatal(err)
+		for _, merce := range merci {
+			err = InsertStockMerce(db, merce.MerceId, newStock)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
-		err = InsertOrder(db)
+
+		err = InsertOrder(db, orderNote, merci)
 		if err != nil {
 			log.Fatal(err)
 		}
