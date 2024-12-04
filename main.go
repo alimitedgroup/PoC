@@ -77,7 +77,7 @@ func (r *Repo) InsertOrderMerce(tx *sql.Tx, orderId int64, merceId int64, stock 
 	}
 
 	if rowCount != 1 {
-		return fmt.Errorf("Expected to insert 1 row, inserted %d rows\n", rowCount)
+		return fmt.Errorf("expected to insert 1 row, inserted %d rows", rowCount)
 	}
 
 	return nil
@@ -101,7 +101,7 @@ func (r *Repo) IncreaseStockMerce(tx *sql.Tx, merceId int64, stock int64) error 
 	}
 
 	if rowCount != 1 {
-		return fmt.Errorf("Expected to update 1 row, updated %d rows\n", rowCount)
+		return fmt.Errorf("expected to update 1 row, updated %d rows", rowCount)
 	}
 	return nil
 }
@@ -124,7 +124,7 @@ func (r *Repo) DecrementStockMerce(tx *sql.Tx, merceId int64, stock int64) error
 	}
 
 	if rowCount != 1 {
-		return fmt.Errorf("Expected to update 1 row, updated %d rows\n", rowCount)
+		return fmt.Errorf("expected to update 1 row, updated %d rows", rowCount)
 	}
 	return nil
 }
@@ -152,7 +152,7 @@ func (r *Repo) InsertAddMerceStockEvent(tx *sql.Tx, addStockEvent AddStockEvent)
 	}
 
 	if rowCount != 1 {
-		return fmt.Errorf("Expected to insert 1 row, inserted %d rows\n", rowCount)
+		return fmt.Errorf("expected to insert 1 row, inserted %d rows", rowCount)
 	}
 
 	return nil
@@ -181,7 +181,7 @@ func (r *Repo) InsertCreateOrderEvent(tx *sql.Tx, orderEvent CreateOrderEvent) e
 	}
 
 	if rowCount != 1 {
-		return fmt.Errorf("Expected to insert 1 row, inserted %d rows\n", rowCount)
+		return fmt.Errorf("expected to insert 1 row, inserted %d rows", rowCount)
 	}
 
 	return nil
@@ -192,6 +192,8 @@ func (r *Repo) Finalize(tx *sql.Tx, err error) {
 	if err != nil {
 		if e := tx.Rollback(); e != nil {
 			log.Fatalf("error rolling back transaction: %v", e)
+		} else {
+			log.Printf("executed rollback of the transaction")
 		}
 	} else {
 		if e := tx.Commit(); e != nil {
@@ -213,7 +215,9 @@ func InsertStockMerce(db *sql.DB) error {
 	}
 
 	repo := Repo{}
-	defer repo.Finalize(tx, err)
+	defer func() {
+		repo.Finalize(tx, err)
+	}()
 
 	err = repo.IncreaseStockMerce(tx, addStockEvent.MerceId, addStockEvent.Stock)
 	if err != nil {
@@ -246,7 +250,9 @@ func InsertOrder(db *sql.DB) error {
 	}
 
 	repo := Repo{}
-	defer repo.Finalize(tx, err)
+	defer func() {
+		repo.Finalize(tx, err)
+	}()
 
 	orderEvent.OrderId, err = repo.CreateOrder(tx, orderEvent.Note)
 	if err != nil {
