@@ -187,7 +187,7 @@ func (r *Repo) InsertCreateOrderEvent(tx *sql.Tx, orderEvent CreateOrderEvent) e
 	return nil
 }
 
-func (r *Repo) Finalize(tx *sql.Tx, err error) {
+func (r *Repo) FinalizeTransaction(tx *sql.Tx, err error) {
 	// transaction handling, abort if err is not nil
 	if err != nil {
 		if e := tx.Rollback(); e != nil {
@@ -216,7 +216,7 @@ func InsertStockMerce(db *sql.DB) error {
 
 	repo := Repo{}
 	defer func() {
-		repo.Finalize(tx, err)
+		repo.FinalizeTransaction(tx, err)
 	}()
 
 	err = repo.IncreaseStockMerce(tx, addStockEvent.MerceId, addStockEvent.Stock)
@@ -251,7 +251,7 @@ func InsertOrder(db *sql.DB) error {
 
 	repo := Repo{}
 	defer func() {
-		repo.Finalize(tx, err)
+		repo.FinalizeTransaction(tx, err)
 	}()
 
 	orderEvent.OrderId, err = repo.CreateOrder(tx, orderEvent.Note)
