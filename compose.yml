@@ -4,8 +4,8 @@ volumes:
 services:
     postgres:
         build:
-            context: .
-            dockerfile: ./postgres_Dockerfile
+            context: ./postgres/
+            dockerfile: ./Dockerfile
         ports:
             - 5432:5432
         volumes:
@@ -41,9 +41,20 @@ services:
             timeout: 5s
             retries: 5
     
-    app:
+    locale:
         build:
-            context: .
+            context: ./locale
+            dockerfile: ./Dockerfile
+        restart: always
+        depends_on:
+            postgres:
+                condition: service_healthy
+            nats:
+                condition: service_healthy
+
+    centrale:
+        build:
+            context: ./centrale
             dockerfile: ./Dockerfile
         restart: always
         depends_on:

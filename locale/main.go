@@ -9,7 +9,6 @@ import (
 
 	_ "github.com/jackc/pgx"
 	_ "github.com/jackc/pgx/stdlib"
-	"github.com/nats-io/nats.go"
 )
 
 const dbConnStr = "host=postgres user=postgres password=postgres dbname=database sslmode=disable"
@@ -27,17 +26,6 @@ type CreateOrderEvent struct {
 	OrderId int64        `json:"order_id"`
 	Note    string       `json:"note"`
 	Merci   []MerceStock `json:"merci"`
-}
-
-func ListenEvents(nc *nats.Conn) *nats.Subscription {
-	// Subscribe to a subject
-	sub, err := nc.Subscribe("warehouse_events.*", func(m *nats.Msg) {
-		log.Printf("Received a message: %s\n", string(m.Data))
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	return sub
 }
 
 type Repo struct{}
@@ -276,16 +264,6 @@ func InsertOrder(db *sql.DB, note string, merci []MerceStock) error {
 }
 
 func main() {
-	// Connect to a NATS server
-	nc, err := nats.Connect("nats://nats:4222")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer nc.Close()
-	log.Println("Connected to NATS server")
-	sub := ListenEvents(nc)
-	defer sub.Unsubscribe()
-
 	// Connect to the database
 	db, err := sql.Open("pgx", dbConnStr)
 	if err != nil {
