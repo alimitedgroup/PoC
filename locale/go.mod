@@ -1,4 +1,4 @@
-module app
+module locale
 
 go 1.23.3
 

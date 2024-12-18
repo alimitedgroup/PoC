@@ -2,6 +2,7 @@ listener:
   slotName: replication_slot
   refreshConnection: 30s
   heartbeatInterval: 10s
+  serverPort: 8000
   filter:
     tables:
       order_event:

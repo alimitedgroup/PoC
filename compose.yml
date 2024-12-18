@@ -1,8 +1,17 @@
 volumes:
     db_data:
 
+networks:
+    locale:
+        name: locale
+    centrale:
+        name: centrale
+    public:
+        name: public
+
 services:
     postgres:
+        container_name: postgres
         build:
             context: ./postgres/
             dockerfile: ./Dockerfile
@@ -21,6 +30,7 @@ services:
             timeout: 5s
             retries: 5
     nats:
+        container_name: nats
         image: nats:2.10-alpine
         command:
             # - "--cluster"
@@ -40,30 +50,51 @@ services:
             interval: 5s
             timeout: 5s
             retries: 5
-    
+
     locale:
+        container_name: locale
         build:
             context: ./locale
             dockerfile: ./Dockerfile
         restart: always
+        environment:
+            - LISTEN_PORT=8000
+            - DB_URL=postgres://postgres:postgres@postgres:5432/database
         depends_on:
             postgres:
                 condition: service_healthy
             nats:
                 condition: service_healthy
+            transaction_logger:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD-SHELL", "wget http://localhost:8000/health -q -S -O -"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
 
     centrale:
+        container_name: centrale
         build:
             context: ./centrale
             dockerfile: ./Dockerfile
         restart: always
+        environment:
+            - NATS_URL=nats://nats:4222
+            - LISTEN_PORT=8000
         depends_on:
             postgres:
                 condition: service_healthy
             nats:
                 condition: service_healthy
+        healthcheck:
+            test: ["CMD-SHELL", "wget http://localhost:8000/health -q -S -O -"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
 
     transaction_logger:
+        container_name: transaction_logger
         image: ihippik/wal-listener:v2.7.1
         volumes:
             - ./wal-listener.yml:/app/config.yml
@@ -72,3 +103,10 @@ services:
                 condition: service_healthy
             nats:
                 condition: service_healthy
+        healthcheck:
+            # TODO: no wget/curl on wal-listener image, maybe create our own image and fork
+            # test: ["CMD-SHELL", "wget http://localhost:8000/healthz -q -S -O -"]
+            test: ["CMD-SHELL", "exit 0"] # NO-OP
+            interval: 5s
+            timeout: 5s
+            retries: 5

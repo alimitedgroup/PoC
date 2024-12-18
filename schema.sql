@@ -7,13 +7,13 @@ merce;
 
 CREATE TABLE IF NOT EXISTS order_event (
     id SERIAL PRIMARY KEY,
-    message TEXT NOT NULL,
+    message JSONB NOT NULL,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS merce_event (
     id SERIAL PRIMARY KEY,
-    message TEXT NOT NULL,
+    message JSONB NOT NULL,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL
 );
 

@@ -4,14 +4,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"os"
 	"time"
 
 	_ "github.com/jackc/pgx"
 	_ "github.com/jackc/pgx/stdlib"
 )
-
-const dbConnStr = "host=postgres user=postgres password=postgres dbname=database sslmode=disable"
 
 type AddStockEvent struct {
 	MerceId int64 `json:"merce_id"`
@@ -22,6 +23,7 @@ type MerceStock struct {
 	MerceId int64 `json:"merce_id"`
 	Stock   int64 `json:"stock"`
 }
+
 type CreateOrderEvent struct {
 	OrderId int64        `json:"order_id"`
 	Note    string       `json:"note"`
@@ -263,7 +265,19 @@ func InsertOrder(db *sql.DB, note string, merci []MerceStock) error {
 	return nil
 }
 
+func getRoot(w http.ResponseWriter, r *http.Request) {
+	log.Printf("got / request\n")
+	io.WriteString(w, "Hello!\n")
+}
+func getHealth(w http.ResponseWriter, r *http.Request) {
+	log.Printf("got /health_check request\n")
+	io.WriteString(w, "OK\n")
+}
+
 func main() {
+	dbConnStr := os.Getenv("DB_URL")
+	listenPort := os.Getenv("LISTEN_PORT")
+
 	// Connect to the database
 	db, err := sql.Open("pgx", dbConnStr)
 	if err != nil {
@@ -285,6 +299,16 @@ func main() {
 	}
 	orderNote := "test order note"
 	var newStock int64 = 10
+
+	http.HandleFunc("/", getRoot)
+	http.HandleFunc("/health", getHealth)
+
+	go func() {
+		err = http.ListenAndServe(fmt.Sprintf(":%v", listenPort), nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	for {
 		for _, merce := range merci {
