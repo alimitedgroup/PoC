@@ -2,18 +2,18 @@ volumes:
     db_data:
 
 networks:
-    locale:
-        name: locale
-    centrale:
-        name: centrale
-    public:
-        name: public
+    local-srv-network:
+        name: local-srv-network
+        driver: bridge
+    central-srv-network:
+        name: central-srv-network
+        driver: bridge
 
 services:
     postgres:
         container_name: postgres
         build:
-            context: ./postgres/
+            context: ./build/postgres/
             dockerfile: ./Dockerfile
         ports:
             - 5432:5432
@@ -24,6 +24,8 @@ services:
             - POSTGRES_PASSWORD=postgres
             - POSTGRES_USER=postgres
             - POSTGRES_DB=database
+        networks:
+            - local-srv-network
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U postgres"]
             interval: 5s
@@ -45,21 +47,26 @@ services:
             - "8222:8222"
             - "6222:6222"
             - "4222:4222"
+        networks:
+            - local-srv-network
+            - central-srv-network
         healthcheck:
             test: ["CMD-SHELL", "wget http://localhost:8222/healthz -q -S -O -"]
             interval: 5s
             timeout: 5s
             retries: 5
 
-    locale:
-        container_name: locale
+    local:
+        container_name: local
         build:
-            context: ./locale
-            dockerfile: ./Dockerfile
+            context: ./
+            dockerfile: ./build/local/Dockerfile
         restart: always
         environment:
             - LISTEN_PORT=8000
-            - DB_URL=postgres://postgres:postgres@postgres:5432/database
+            - DB_URL=host=postgres user=postgres password=postgres dbname=database sslmode=disable
+        networks:
+            - local-srv-network
         depends_on:
             postgres:
                 condition: service_healthy
@@ -73,15 +80,17 @@ services:
             timeout: 5s
             retries: 5
 
-    centrale:
-        container_name: centrale
+    central:
+        container_name: central
         build:
-            context: ./centrale
-            dockerfile: ./Dockerfile
+            context: ./
+            dockerfile: ./build/central/Dockerfile
         restart: always
         environment:
             - NATS_URL=nats://nats:4222
             - LISTEN_PORT=8000
+        networks:
+            - central-srv-network
         depends_on:
             postgres:
                 condition: service_healthy
@@ -98,6 +107,8 @@ services:
         image: ihippik/wal-listener:v2.7.1
         volumes:
             - ./wal-listener.yml:/app/config.yml
+        networks:
+            - local-srv-network
         depends_on:
             postgres:
                 condition: service_healthy
