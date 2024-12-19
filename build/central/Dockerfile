@@ -10,8 +10,8 @@ WORKDIR /app/srv/central
 
 RUN go mod download
 
-COPY srv/central/ .
+COPY srv/central .
 
-RUN go build -o main main.go
+RUN go build -o main
 
 ENTRYPOINT ["./main"]
