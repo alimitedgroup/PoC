@@ -43,16 +43,16 @@ CREATE TABLE IF NOT EXISTS order_merce (
 INSERT INTO
     merce (name, stock, description)
 VALUES
-    ('T-shirt', 10, 'T-shirt description');
+    ('T-shirt', 0, 'T-shirt description');
 
 INSERT INTO
     merce (name, stock, description)
 VALUES
-    ('Pants', 10, 'Pants description');
+    ('Pants', 0, 'Pants description');
 
 INSERT INTO
     merce (name, stock, description)
 VALUES
-    ('Shoes', 10, 'Shoes description');
+    ('Shoes', 0, 'Shoes description');
 
 COMMIT;

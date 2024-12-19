@@ -44,6 +44,8 @@ func main() {
 	defer nc.Close()
 	log.Println("Connected to NATS server")
 
+	InitMerceState()
+
 	sub := ListenEvents(nc)
 	defer sub.Unsubscribe()
 

@@ -27,7 +27,14 @@ func handleMerceEvent(event Event) {
 	if err != nil {
 		log.Fatalf("Error unmarshalling merce event: %v", err)
 	}
-	log.Printf("Received merce event: %+v\n", merceEvent)
+	log.Printf("Received stock update of merce: %v\n", merceEvent.MerceId)
+
+	_, ok := StockOfMerce[merceEvent.MerceId]
+	if !ok {
+		log.Fatalf("Merce %v not found in stock, inconsistent global state\n", merceEvent.MerceId)
+	}
+	StockOfMerce[merceEvent.MerceId] += merceEvent.Stock
+	log.Printf("increased stock of merce %v to %v\n", merceEvent.MerceId, StockOfMerce[merceEvent.MerceId])
 }
 
 func handleOrderEvent(event Event) {
@@ -36,10 +43,30 @@ func handleOrderEvent(event Event) {
 	if err != nil {
 		log.Fatalf("Error unmarshalling order event: %v", err)
 	}
-	log.Printf("Received order event: %+v\n", orderEvent)
+	log.Printf("Received order: %v\n", orderEvent.OrderId)
+
+	for _, item := range orderEvent.Merci {
+		_, ok := StockOfMerce[item.MerceId]
+		if !ok {
+			log.Fatalf("Merce %v not found in stock, inconsistent global state\n", item.MerceId)
+		}
+		StockOfMerce[item.MerceId] -= item.Stock
+		log.Printf("decreased stock of merce %v to %v\n", item.MerceId, StockOfMerce[item.MerceId])
+	}
 }
 
 var EventCallbacks = map[string]func(Event){
 	"merce_event": handleMerceEvent,
 	"order_event": handleOrderEvent,
+}
+
+var StockOfMerce = map[int64]int64{}
+
+func InitMerceState() {
+	// TODO: read events from catalog service
+	StockOfMerce = map[int64]int64{
+		1: 0,
+		2: 0,
+		3: 0,
+	}
 }
