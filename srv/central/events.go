@@ -2,24 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 
 	. "magazzino/common"
-)
 
-type Event struct {
-	Id         string `json:"id"`
-	Schema     string `json:"schema"`
-	Table      string `json:"table"`
-	Action     string `json:"action"`
-	CommitTime string `json:"commitTime"`
-	Data       struct {
-		CreatedAt string          `json:"created_at"`
-		Id        int64           `json:"id"`
-		Message   json.RawMessage `json:"message"`
-	} `json:"data"`
-	DataOld json.RawMessage `json:"dataOld"` // only for Action = "UPDATE"
-}
+	"github.com/nats-io/nats.go"
+)
 
 func handleMerceEvent(event Event) {
 	var merceEvent AddStockEvent
@@ -69,4 +58,28 @@ func InitMerceState() {
 		2: 0,
 		3: 0,
 	}
+}
+
+const subjectName = "warehouse_events"
+
+func ListenEvents(nc *nats.Conn) *nats.Subscription {
+	// Subscribe to a subject
+	sub, err := nc.Subscribe(fmt.Sprintf("%v.*", subjectName), func(m *nats.Msg) {
+		var event Event
+		err := json.Unmarshal(m.Data, &event)
+		if err != nil {
+			log.Fatalf("Error unmarshalling event: %v", err)
+		}
+
+		f, ok := EventCallbacks[event.Table]
+		if !ok {
+			log.Printf("No callback found for event: %v\n", event.Table)
+			return
+		}
+		f(event)
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return sub
 }

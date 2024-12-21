@@ -2,29 +2,34 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
-func getRoot(w http.ResponseWriter, r *http.Request) {
+func getRoot(c *gin.Context) {
 	log.Printf("got / request\n")
-	io.WriteString(w, "Hello!\n")
-}
-func getHealth(w http.ResponseWriter, r *http.Request) {
-	log.Printf("got /health_check request\n")
-	io.WriteString(w, "OK\n")
+	c.String(http.StatusOK, "Hello!\n")
 }
 
-func setupRoutes() {
-	http.HandleFunc("/", getRoot)
-	http.HandleFunc("/health", getHealth)
+func getHealth(c *gin.Context) {
+	log.Printf("got /health request\n")
+	c.String(http.StatusOK, "OK\n")
+}
+
+func setupRoutes() *gin.Engine {
+	r := gin.Default()
+	r.GET("/", getRoot)
+	r.GET("/health", getHealth)
+
+	return r
 }
 
 func startServer(listenPort string) {
-	setupRoutes()
+	var r = setupRoutes()
 
-	err := http.ListenAndServe(fmt.Sprintf(":%v", listenPort), nil)
+	err := r.Run(fmt.Sprintf(":%v", listenPort))
 	if err != nil {
 		log.Fatal(err)
 	}

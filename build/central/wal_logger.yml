@@ -5,15 +5,13 @@ listener:
   serverPort: 8000
   filter:
     tables:
-      order_event:
-        - insert
-      merce_event:
+      create_merce_event:
         - insert
 logger:
   level: info
-  fmt: json
+  # fmt: text
 database:
-  host: postgres
+  host: central_db
   port: 5432
   name: database
   user: postgres
@@ -21,6 +19,6 @@ database:
   debug: true
 publisher:
   type: nats
-  address: nats:4222
+  address: queue:4222
   topic: "warehouse_events"
   topicPrefix: ""

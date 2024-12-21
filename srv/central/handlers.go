@@ -40,7 +40,9 @@ func getMerce(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, map[string]any{
-		"merce": id,
+		"merce": map[string]any{
+			"id": intID,
+		},
 		"stock": merceStock,
 	})
 }

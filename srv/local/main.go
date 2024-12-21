@@ -8,8 +8,8 @@ import (
 
 	. "magazzino/common"
 
-	_ "github.com/jackc/pgx"
 	_ "github.com/jackc/pgx/stdlib"
+	"github.com/nats-io/nats.go"
 )
 
 func fakeOperations(db *sql.DB) {
@@ -41,6 +41,7 @@ func fakeOperations(db *sql.DB) {
 func main() {
 	dbConnStr := os.Getenv("DB_URL")
 	listenPort := os.Getenv("LISTEN_PORT")
+	natsUrl := os.Getenv("NATS_URL")
 
 	// Connect to the database
 	db, err := sql.Open("pgx", dbConnStr)
@@ -55,8 +56,18 @@ func main() {
 	}
 	log.Println("Connected to PostgreSQL!")
 
+	// Connect to a NATS server
+	nc, err := nats.Connect(natsUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer nc.Close()
+	log.Println("Connected to NATS server")
+
 	go startServer(listenPort)
-	go fakeOperations(db)
+	sub := ListenEvents(nc, db)
+	defer sub.Unsubscribe()
+	// go fakeOperations(db)
 
 	select {}
 }

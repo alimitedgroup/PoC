@@ -1,5 +1,6 @@
 volumes:
-    db_data:
+    local_db_data:
+    central_db_data:
 
 networks:
     local-srv-network:
@@ -10,29 +11,8 @@ networks:
         driver: bridge
 
 services:
-    postgres:
-        container_name: postgres
-        build:
-            context: ./build/postgres/
-            dockerfile: ./Dockerfile
-        ports:
-            - 5432:5432
-        volumes:
-            - db_data:/var/lib/postgresql/data
-            - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
-        environment:
-            - POSTGRES_PASSWORD=postgres
-            - POSTGRES_USER=postgres
-            - POSTGRES_DB=database
-        networks:
-            - local-srv-network
-        healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U postgres"]
-            interval: 5s
-            timeout: 5s
-            retries: 5
-    nats:
-        container_name: nats
+    queue:
+        container_name: queue
         image: nats:2.10-alpine
         command:
             # - "--cluster"
@@ -56,23 +36,26 @@ services:
             timeout: 5s
             retries: 5
 
-    local:
-        container_name: local
+    local_service:
+        container_name: local_service
         build:
             context: ./
             dockerfile: ./build/local/Dockerfile
         restart: always
         environment:
             - LISTEN_PORT=8000
-            - DB_URL=host=postgres user=postgres password=postgres dbname=database sslmode=disable
+            - NATS_URL=nats://queue:4222
+            - DB_URL=host=local_db user=postgres password=postgres dbname=database sslmode=disable
+        ports:
+            - 8089:8000
         networks:
             - local-srv-network
         depends_on:
-            postgres:
+            local_db:
                 condition: service_healthy
-            nats:
+            queue:
                 condition: service_healthy
-            transaction_logger:
+            local_wal_logger:
                 condition: service_healthy
         healthcheck:
             test: ["CMD-SHELL", "wget http://localhost:8000/health -q -S -O -"]
@@ -80,21 +63,67 @@ services:
             timeout: 5s
             retries: 5
 
-    central:
-        container_name: central
+    local_db:
+        container_name: local_db
+        build:
+            context: ./build/local/db
+            dockerfile: ./Dockerfile
+        ports:
+            - 5435:5432
+        volumes:
+            - local_db_data:/var/lib/postgresql/data
+        environment:
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_USER=postgres
+            - POSTGRES_DB=database
+        networks:
+            - local-srv-network
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+    local_wal_logger:
+        container_name: local_wal_logger
+        image: ihippik/wal-listener:v2.7.1
+        volumes:
+            - ./build/local/wal_logger.yml:/app/config.yml
+        networks:
+            - local-srv-network
+        depends_on:
+            local_db:
+                condition: service_healthy
+            queue:
+                condition: service_healthy
+        healthcheck:
+            # TODO: no wget/curl on wal-listener image, maybe create our own image and fork
+            # test: ["CMD-SHELL", "wget http://localhost:8000/healthz -q -S -O -"]
+            test: ["CMD-SHELL", "exit 0"] # NO-OP
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+    central_service:
+        container_name: central_service
         build:
             context: ./
             dockerfile: ./build/central/Dockerfile
         restart: always
         environment:
-            - NATS_URL=nats://nats:4222
+            - NATS_URL=nats://queue:4222
+            - DB_URL=host=central_db user=postgres password=postgres dbname=database sslmode=disable
             - LISTEN_PORT=8000
+        ports:
+            - 8088:8000
         networks:
             - central-srv-network
         depends_on:
-            postgres:
+            central_db:
                 condition: service_healthy
-            nats:
+            central_wal_logger:
+                condition: service_healthy
+            queue:
                 condition: service_healthy
         healthcheck:
             test: ["CMD-SHELL", "wget http://localhost:8000/health -q -S -O -"]
@@ -102,17 +131,38 @@ services:
             timeout: 5s
             retries: 5
 
-    transaction_logger:
-        container_name: transaction_logger
+    central_db:
+        container_name: central_db
+        build:
+            context: ./build/central/db/
+            dockerfile: ./Dockerfile
+        ports:
+            - 5436:5432
+        volumes:
+            - central_db_data:/var/lib/postgresql/data
+        environment:
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_USER=postgres
+            - POSTGRES_DB=database
+        networks:
+            - central-srv-network
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+    central_wal_logger:
+        container_name: central_wal_logger
         image: ihippik/wal-listener:v2.7.1
         volumes:
-            - ./wal-listener.yml:/app/config.yml
+            - ./build/central/wal_logger.yml:/app/config.yml
         networks:
-            - local-srv-network
+            - central-srv-network
         depends_on:
-            postgres:
+            central_db:
                 condition: service_healthy
-            nats:
+            queue:
                 condition: service_healthy
         healthcheck:
             # TODO: no wget/curl on wal-listener image, maybe create our own image and fork

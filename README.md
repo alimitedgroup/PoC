@@ -8,5 +8,5 @@
 
 ## Listen messages
 
-`nats subscribe warehouse_events.public_merce_event`
+`nats subscribe warehouse_events.public_merce_stock_update_event`
 `nats subscribe warehouse_events.public_order_event`

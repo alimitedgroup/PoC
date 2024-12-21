@@ -99,7 +99,7 @@ func (r *Repo) DecrementStockMerce(tx *sql.Tx, merceId int64, stock int64) error
 }
 
 func (r *Repo) InsertAddMerceStockEvent(tx *sql.Tx, addStockEvent AddStockEvent) error {
-	stmt, err := tx.Prepare("INSERT INTO merce_event (message) VALUES ($1)")
+	stmt, err := tx.Prepare("INSERT INTO merce_stock_update_event (message) VALUES ($1)")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -151,6 +151,15 @@ func (r *Repo) InsertCreateOrderEvent(tx *sql.Tx, orderEvent CreateOrderEvent) e
 
 	if rowCount != 1 {
 		return fmt.Errorf("expected to insert 1 row, inserted %d rows", rowCount)
+	}
+
+	return nil
+}
+
+func (r *Repo) CreateMerce(tx *sql.Tx, id int, name string, description string) error {
+	_, err := tx.Exec("INSERT INTO merce (id, name, description) VALUES ($1, $2, $3)", id, name, description)
+	if err != nil {
+		return err
 	}
 
 	return nil
