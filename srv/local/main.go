@@ -65,7 +65,7 @@ func fakeMerceStockIncrease(db *sql.DB) {
 			if err := rows.Scan(&merceId, &stock); err != nil {
 				log.Fatal(err)
 			}
-			stockSelected := max(1, stock*int64(rand.Intn(10+3)+3)/100)
+			stockSelected := min(max(1, stock*int64(rand.Intn(10+3)+3)/100), 10)
 			if stockSelected > 0 {
 				merci = append(merci, MerceStock{MerceId: merceId, Stock: stockSelected})
 			}

@@ -40,7 +40,7 @@ func main() {
 	sub := ListenEvents(nc, db)
 	defer sub.Unsubscribe()
 
-	go startServer(listenPort)
+	go startServer(listenPort, db)
 
 	select {}
 }

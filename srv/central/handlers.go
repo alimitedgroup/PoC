@@ -10,6 +10,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type Controller struct {
+	db *sql.DB
+}
+
 func getRoot(c *gin.Context) {
 	log.Printf("got / request\n")
 	c.String(http.StatusOK, "Hello!\n")
@@ -20,7 +24,7 @@ func getHealth(c *gin.Context) {
 	c.String(http.StatusOK, "OK\n")
 }
 
-func getMerce(c *gin.Context) {
+func (r *Controller) getMerce(c *gin.Context) {
 	id := c.Param("id")
 	log.Printf("got /merce/%s request\n", id)
 	intID, err := strconv.Atoi(id)
@@ -32,14 +36,9 @@ func getMerce(c *gin.Context) {
 		return
 	}
 
-	db := c.Value("db").(*sql.DB)
-	if db == nil {
-		log.Fatalf("Error getting db from context")
-	}
-
 	var merceName string
 	var stockMerce int
-	err = db.QueryRow("SELECT name, stock FROM merce WHERE id = ?", intID).Scan(&merceName, &stockMerce)
+	err = r.db.QueryRow("SELECT name, stock FROM merce WHERE id = $1", intID).Scan(&merceName, &stockMerce)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, map[string]any{
@@ -63,17 +62,21 @@ func getMerce(c *gin.Context) {
 	})
 }
 
-func setupRoutes() *gin.Engine {
+func setupRoutes(db *sql.DB) *gin.Engine {
+	controller := Controller{
+		db: db,
+	}
+
 	r := gin.Default()
 	r.GET("/", getRoot)
 	r.GET("/health", getHealth)
-	r.GET("/merce/:id", getMerce)
+	r.GET("/merce/:id", controller.getMerce)
 
 	return r
 }
 
-func startServer(listenPort string) {
-	var r = setupRoutes()
+func startServer(listenPort string, db *sql.DB) {
+	var r = setupRoutes(db)
 
 	err := r.Run(fmt.Sprintf(":%v", listenPort))
 	if err != nil {
