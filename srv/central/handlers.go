@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -31,19 +32,34 @@ func getMerce(c *gin.Context) {
 		return
 	}
 
-	merceStock, found := StockOfMerce[int64(intID)]
-	if !found {
-		c.JSON(http.StatusNotFound, map[string]any{
-			"error": fmt.Sprintf("merce ID %s not found", id),
+	db := c.Value("db").(*sql.DB)
+	if db == nil {
+		log.Fatalf("Error getting db from context")
+	}
+
+	var merceName string
+	var stockMerce int
+	err = db.QueryRow("SELECT name, stock FROM merce WHERE id = ?", intID).Scan(&merceName, &stockMerce)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, map[string]any{
+				"error": fmt.Sprintf("merce ID %s not found", id),
+			})
+			return
+		}
+		log.Printf("error querying db: %v\n", err)
+		c.JSON(http.StatusInternalServerError, map[string]any{
+			"error": "internal server error",
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, map[string]any{
 		"merce": map[string]any{
-			"id": intID,
+			"id":   intID,
+			"name": merceName,
 		},
-		"stock": merceStock,
+		"stock": stockMerce,
 	})
 }
 

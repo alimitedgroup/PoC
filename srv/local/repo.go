@@ -128,7 +128,7 @@ func (r *Repo) InsertAddMerceStockEvent(tx *sql.Tx, addStockEvent AddStockEvent)
 }
 
 func (r *Repo) InsertCreateOrderEvent(tx *sql.Tx, orderEvent CreateOrderEvent) error {
-	stmt, err := tx.Prepare("INSERT INTO order_event (message) VALUES ($1)")
+	stmt, err := tx.Prepare("INSERT INTO create_order_event (message) VALUES ($1)")
 	if err != nil {
 		return err
 	}

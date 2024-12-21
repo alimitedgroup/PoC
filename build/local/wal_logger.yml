@@ -5,7 +5,7 @@ listener:
   serverPort: 8000
   filter:
     tables:
-      order_event:
+      create_order_event:
         - insert
       merce_stock_update_event:
         - insert

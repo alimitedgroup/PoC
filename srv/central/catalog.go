@@ -53,16 +53,25 @@ func InitCatalog(db *sql.DB) {
 		INSERT INTO create_merce_event (message)
 		VALUES %v;`, strings.Join(merciEventQueryPart, ", "))
 
-	_, err = tx.Exec(query, merciValues...)
+	res, err := tx.Exec(query, merciValues...)
 	if err != nil {
 		tx.Rollback()
 		log.Fatalf("Error inserting merce: %v", err)
 	}
 
-	_, err = tx.Exec(queryEvent, merciEventValues...)
+	rows, err := res.RowsAffected()
 	if err != nil {
 		tx.Rollback()
-		log.Fatalf("Error inserting create_merce_event: %v", err)
+		log.Fatalf("Error getting rows affected: %v", err)
+	}
+	if rows == int64(len(merci)) {
+		_, err = tx.Exec(queryEvent, merciEventValues...)
+		if err != nil {
+			tx.Rollback()
+			log.Fatalf("Error inserting create_merce_event: %v", err)
+		}
+	} else {
+		log.Printf("Merci already exist, skipping event query")
 	}
 
 	err = tx.Commit()

@@ -37,7 +37,7 @@ func main() {
 
 	InitCatalog(db)
 
-	sub := ListenEvents(nc)
+	sub := ListenEvents(nc, db)
 	defer sub.Unsubscribe()
 
 	go startServer(listenPort)

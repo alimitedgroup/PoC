@@ -62,6 +62,7 @@ services:
             interval: 5s
             timeout: 5s
             retries: 5
+            start_period: 10s
 
     local_db:
         container_name: local_db
@@ -130,6 +131,7 @@ services:
             interval: 5s
             timeout: 5s
             retries: 5
+            start_period: 10s
 
     central_db:
         container_name: central_db
@@ -148,7 +150,7 @@ services:
             - central-srv-network
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U postgres"]
-            interval: 5s
+            interval: 30s
             timeout: 5s
             retries: 5
 

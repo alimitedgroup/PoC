@@ -1,13 +1,14 @@
 BEGIN;
 
-DROP TABLE IF EXISTS order_event,
+DROP TABLE IF EXISTS create_order_event,
+merce_stock_update_event,
 order_merce,
 orders,
 merce;
 
 -- EVENTS
 CREATE TABLE
-    IF NOT EXISTS order_event (
+    IF NOT EXISTS create_order_event (
         id SERIAL PRIMARY KEY,
         message JSONB NOT NULL,
         created_at TIMESTAMP DEFAULT NOW () NOT NULL

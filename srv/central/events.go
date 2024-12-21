@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,7 +12,12 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-func handleMerceEvent(event Event) {
+func handleMerceStockUpdateEvent(event Event, ctx context.Context) {
+	db := ctx.Value("db").(*sql.DB)
+	if db == nil {
+		log.Fatalf("Error getting db from context")
+	}
+
 	var merceEvent AddStockEvent
 	err := json.Unmarshal(event.Data.Message, &merceEvent)
 	if err != nil {
@@ -18,15 +25,19 @@ func handleMerceEvent(event Event) {
 	}
 	log.Printf("Received stock update of merce: %v\n", merceEvent.MerceId)
 
-	_, ok := StockOfMerce[merceEvent.MerceId]
-	if !ok {
-		log.Fatalf("Merce %v not found in stock, inconsistent global state\n", merceEvent.MerceId)
+	_, err = db.Exec("UPDATE merce SET stock = stock + $1 WHERE id = $2", merceEvent.Stock, merceEvent.MerceId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Fatalf("Merce %v not found in stock, inconsistent global state\n", merceEvent.MerceId)
+		} else {
+			log.Fatalf("Error updating stock in database: %v", err)
+		}
 	}
-	StockOfMerce[merceEvent.MerceId] += merceEvent.Stock
-	log.Printf("increased stock of merce %v to %v\n", merceEvent.MerceId, StockOfMerce[merceEvent.MerceId])
+
+	log.Printf("increased stock of merce %v\n", merceEvent.MerceId)
 }
 
-func handleOrderEvent(event Event) {
+func handleCreateOrderEvent(event Event, ctx context.Context) {
 	var orderEvent CreateOrderEvent
 	err := json.Unmarshal(event.Data.Message, &orderEvent)
 	if err != nil {
@@ -34,35 +45,44 @@ func handleOrderEvent(event Event) {
 	}
 	log.Printf("Received order: %v\n", orderEvent.OrderId)
 
+	db := ctx.Value("db").(*sql.DB)
+	if db == nil {
+		log.Fatalf("Error getting db from context")
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Fatalf("Error beginning transaction: %v", err)
+	}
+
 	for _, item := range orderEvent.Merci {
-		_, ok := StockOfMerce[item.MerceId]
-		if !ok {
-			log.Fatalf("Merce %v not found in stock, inconsistent global state\n", item.MerceId)
+		_, err := tx.Exec("UPDATE merce SET stock = stock - $1 WHERE id = $2", item.Stock, item.MerceId)
+		if err != nil {
+			tx.Rollback()
+			log.Fatalf("Error updating stock in database: %v", err)
 		}
-		StockOfMerce[item.MerceId] -= item.Stock
-		log.Printf("decreased stock of merce %v to %v\n", item.MerceId, StockOfMerce[item.MerceId])
 	}
+
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		log.Fatalf("Error committing transaction: %v", err)
+	}
+
+	log.Printf("applied order: %v\n", orderEvent.OrderId)
 }
 
-var EventCallbacks = map[string]func(Event){
-	"merce_event": handleMerceEvent,
-	"order_event": handleOrderEvent,
-}
-
-var StockOfMerce = map[int64]int64{}
-
-func InitMerceState() {
-	// TODO: read events from catalog service
-	StockOfMerce = map[int64]int64{
-		1: 0,
-		2: 0,
-		3: 0,
-	}
+var EventCallbacks = map[string]func(Event, context.Context){
+	"merce_stock_update_event": handleMerceStockUpdateEvent,
+	"create_order_event":       handleCreateOrderEvent,
 }
 
 const subjectName = "warehouse_events"
 
-func ListenEvents(nc *nats.Conn) *nats.Subscription {
+func ListenEvents(nc *nats.Conn, db *sql.DB) *nats.Subscription {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "db", db)
+
 	// Subscribe to a subject
 	sub, err := nc.Subscribe(fmt.Sprintf("%v.*", subjectName), func(m *nats.Msg) {
 		var event Event
@@ -76,7 +96,7 @@ func ListenEvents(nc *nats.Conn) *nats.Subscription {
 			log.Printf("No callback found for event: %v\n", event.Table)
 			return
 		}
-		f(event)
+		f(event, ctx)
 	})
 	if err != nil {
 		log.Fatal(err)
