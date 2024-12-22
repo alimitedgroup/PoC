@@ -12,12 +12,7 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-func handleMerceStockUpdateEvent(event Event, ctx context.Context) {
-	db := ctx.Value("db").(*sql.DB)
-	if db == nil {
-		log.Fatalf("Error getting db from context")
-	}
-
+func handleMerceStockUpdateEvent(ctx context.Context, event Event, db *sql.DB) {
 	var merceEvent AddStockEvent
 	err := json.Unmarshal(event.Data.Message, &merceEvent)
 	if err != nil {
@@ -37,7 +32,7 @@ func handleMerceStockUpdateEvent(event Event, ctx context.Context) {
 	log.Printf("increased stock of merce %v\n", merceEvent.MerceId)
 }
 
-func handleCreateOrderEvent(event Event, ctx context.Context) {
+func handleCreateOrderEvent(ctx context.Context, event Event, db *sql.DB) {
 	var orderEvent CreateOrderEvent
 	err := json.Unmarshal(event.Data.Message, &orderEvent)
 	if err != nil {
@@ -45,34 +40,28 @@ func handleCreateOrderEvent(event Event, ctx context.Context) {
 	}
 	log.Printf("Received order: %v\n", orderEvent.OrderId)
 
-	db := ctx.Value("db").(*sql.DB)
-	if db == nil {
-		log.Fatalf("Error getting db from context")
-	}
-
 	tx, err := db.Begin()
 	if err != nil {
 		log.Fatalf("Error beginning transaction: %v", err)
 	}
+	defer tx.Rollback()
 
 	for _, item := range orderEvent.Merci {
 		_, err := tx.Exec("UPDATE merce SET stock = stock - $1 WHERE id = $2", item.Stock, item.MerceId)
 		if err != nil {
-			tx.Rollback()
 			log.Fatalf("Error updating stock in database: %v", err)
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		tx.Rollback()
 		log.Fatalf("Error committing transaction: %v", err)
 	}
 
 	log.Printf("applied order: %v\n", orderEvent.OrderId)
 }
 
-var EventCallbacks = map[string]func(Event, context.Context){
+var EventCallbacks = map[string]func(context.Context, Event, *sql.DB){
 	"merce_stock_update_event": handleMerceStockUpdateEvent,
 	"create_order_event":       handleCreateOrderEvent,
 }
@@ -96,7 +85,7 @@ func ListenEvents(nc *nats.Conn, db *sql.DB) *nats.Subscription {
 			log.Printf("No callback found for event: %v\n", event.Table)
 			return
 		}
-		f(event, ctx)
+		f(ctx, event, db)
 	})
 	if err != nil {
 		log.Fatal(err)

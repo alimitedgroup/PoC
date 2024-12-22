@@ -14,16 +14,11 @@ import (
 
 const subjectName = "warehouse_events"
 
-var EventCallbacks = map[string]func(Event, context.Context){
+var EventCallbacks = map[string]func(context.Context, Event, *sql.DB){
 	"create_merce_event": handleCreateMerceEvent,
 }
 
-func handleCreateMerceEvent(event Event, ctx context.Context) {
-	db := ctx.Value("db").(*sql.DB)
-	if db == nil {
-		log.Fatalf("Error getting db from context")
-	}
-
+func handleCreateMerceEvent(ctx context.Context, event Event, db *sql.DB) {
 	repo := ctx.Value("repo").(*Repo)
 	if repo == nil {
 		log.Fatalf("Error getting repo from context")
@@ -57,7 +52,6 @@ func handleCreateMerceEvent(event Event, ctx context.Context) {
 func ListenEvents(nc *nats.Conn, db *sql.DB) *nats.Subscription {
 	// Subscribe to a subject
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "db", db)
 	ctx = context.WithValue(ctx, "repo", &Repo{})
 
 	sub, err := nc.Subscribe(fmt.Sprintf("%v.*", subjectName), func(m *nats.Msg) {
@@ -72,7 +66,7 @@ func ListenEvents(nc *nats.Conn, db *sql.DB) *nats.Subscription {
 			log.Printf("No callback found for event: %v\n", event.Table)
 			return
 		}
-		f(event, ctx)
+		f(ctx, event, db)
 	})
 	if err != nil {
 		log.Fatal(err)
