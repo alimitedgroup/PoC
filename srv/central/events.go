@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"log"
 
-	. "magazzino/common"
+	"github.com/alimitedgroup/palestra_poc/common"
 
 	"github.com/nats-io/nats.go"
 )
 
-func handleMerceStockUpdateEvent(ctx context.Context, event Event, db *sql.DB) {
-	var merceEvent AddStockEvent
+func handleMerceStockUpdateEvent(ctx context.Context, event common.Event, db *sql.DB) {
+	var merceEvent common.AddStockEvent
 	err := json.Unmarshal(event.Data.Message, &merceEvent)
 	if err != nil {
 		log.Fatalf("Error unmarshalling merce event: %v", err)
@@ -32,8 +32,8 @@ func handleMerceStockUpdateEvent(ctx context.Context, event Event, db *sql.DB) {
 	log.Printf("increased stock of merce %v\n", merceEvent.MerceId)
 }
 
-func handleCreateOrderEvent(ctx context.Context, event Event, db *sql.DB) {
-	var orderEvent CreateOrderEvent
+func handleCreateOrderEvent(ctx context.Context, event common.Event, db *sql.DB) {
+	var orderEvent common.CreateOrderEvent
 	err := json.Unmarshal(event.Data.Message, &orderEvent)
 	if err != nil {
 		log.Fatalf("Error unmarshalling order event: %v", err)
@@ -61,7 +61,7 @@ func handleCreateOrderEvent(ctx context.Context, event Event, db *sql.DB) {
 	log.Printf("applied order: %v\n", orderEvent.OrderId)
 }
 
-var EventCallbacks = map[string]func(context.Context, Event, *sql.DB){
+var EventCallbacks = map[string]func(context.Context, common.Event, *sql.DB){
 	"merce_stock_update_event": handleMerceStockUpdateEvent,
 	"create_order_event":       handleCreateOrderEvent,
 }
@@ -74,7 +74,7 @@ func ListenEvents(nc *nats.Conn, db *sql.DB) *nats.Subscription {
 
 	// Subscribe to a subject
 	sub, err := nc.Subscribe(fmt.Sprintf("%v.*", subjectName), func(m *nats.Msg) {
-		var event Event
+		var event common.Event
 		err := json.Unmarshal(m.Data, &event)
 		if err != nil {
 			log.Fatalf("Error unmarshalling event: %v", err)

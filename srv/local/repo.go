@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	. "magazzino/common"
+	"github.com/alimitedgroup/palestra_poc/common"
 )
 
 type Repo struct{}
@@ -98,7 +98,7 @@ func (r *Repo) DecrementStockMerce(tx *sql.Tx, merceId int64, stock int64) error
 	return nil
 }
 
-func (r *Repo) InsertAddMerceStockEvent(tx *sql.Tx, addStockEvent AddStockEvent) error {
+func (r *Repo) InsertAddMerceStockEvent(tx *sql.Tx, addStockEvent common.AddStockEvent) error {
 	stmt, err := tx.Prepare("INSERT INTO merce_stock_update_event (message) VALUES ($1)")
 	if err != nil {
 		log.Fatal(err)
@@ -127,7 +127,7 @@ func (r *Repo) InsertAddMerceStockEvent(tx *sql.Tx, addStockEvent AddStockEvent)
 	return nil
 }
 
-func (r *Repo) InsertCreateOrderEvent(tx *sql.Tx, orderEvent CreateOrderEvent) error {
+func (r *Repo) InsertCreateOrderEvent(tx *sql.Tx, orderEvent common.CreateOrderEvent) error {
 	stmt, err := tx.Prepare("INSERT INTO create_order_event (message) VALUES ($1)")
 	if err != nil {
 		return err

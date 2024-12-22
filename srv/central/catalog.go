@@ -7,7 +7,7 @@ import (
 	"log"
 	"strings"
 
-	. "magazzino/common"
+	"github.com/alimitedgroup/palestra_poc/common"
 )
 
 func InitCatalog(db *sql.DB) {
@@ -27,7 +27,7 @@ func InitCatalog(db *sql.DB) {
 	merciEventQueryPart := make([]string, 0, len(merci))
 	merciEventValues := make([]any, 0, len(merci))
 	for i, m := range merci {
-		event := CreateMerceEvent{
+		event := common.CreateMerceEvent{
 			Id:          m["id"].(int),
 			Name:        m["name"].(string),
 			Description: m["description"].(string),

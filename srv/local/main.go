@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	. "magazzino/common"
+	"github.com/alimitedgroup/palestra_poc/common"
 
 	_ "github.com/jackc/pgx/stdlib"
 	"github.com/nats-io/nats.go"
@@ -22,7 +22,7 @@ func fakeCreateOrder(db *sql.DB) {
 		}
 		defer rows.Close()
 
-		var merci []MerceStock
+		var merci []common.MerceStock
 		for rows.Next() {
 			var merceId int64
 			var stock int64
@@ -32,7 +32,7 @@ func fakeCreateOrder(db *sql.DB) {
 			// select % of stock for the order
 			stockSelected := max(1, stock*int64(rand.Intn(10+3)+3)/100)
 			if stock > 0 {
-				merci = append(merci, MerceStock{MerceId: merceId, Stock: stockSelected})
+				merci = append(merci, common.MerceStock{MerceId: merceId, Stock: stockSelected})
 			}
 		}
 		if err := rows.Err(); err != nil {
@@ -58,7 +58,7 @@ func fakeMerceStockIncrease(db *sql.DB) {
 		}
 		defer rows.Close()
 
-		var merci []MerceStock
+		var merci []common.MerceStock
 		for rows.Next() {
 			var merceId int64
 			var stock int64
@@ -67,7 +67,7 @@ func fakeMerceStockIncrease(db *sql.DB) {
 			}
 			stockSelected := min(max(1, stock*int64(rand.Intn(10+3)+3)/100), 10)
 			if stockSelected > 0 {
-				merci = append(merci, MerceStock{MerceId: merceId, Stock: stockSelected})
+				merci = append(merci, common.MerceStock{MerceId: merceId, Stock: stockSelected})
 			}
 		}
 		if err := rows.Err(); err != nil {

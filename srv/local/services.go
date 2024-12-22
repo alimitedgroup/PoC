@@ -2,8 +2,8 @@ package main
 
 import (
 	"database/sql"
+	"github.com/alimitedgroup/palestra_poc/common"
 	"log"
-	. "magazzino/common"
 )
 
 func InsertStockMerce(db *sql.DB, merceId int64, stock int64) error {
@@ -25,7 +25,7 @@ func InsertStockMerce(db *sql.DB, merceId int64, stock int64) error {
 	}
 	log.Printf("new stock (%d items) of merceId: %v\n", stock, merceId)
 
-	addStockEvent := AddStockEvent{
+	addStockEvent := common.AddStockEvent{
 		MerceId: merceId,
 		Stock:   stock,
 	}
@@ -37,7 +37,7 @@ func InsertStockMerce(db *sql.DB, merceId int64, stock int64) error {
 	return nil
 }
 
-func InsertOrder(db *sql.DB, note string, merci []MerceStock) error {
+func InsertOrder(db *sql.DB, note string, merci []common.MerceStock) error {
 	var err error
 
 	tx, err := db.Begin()
@@ -66,7 +66,7 @@ func InsertOrder(db *sql.DB, note string, merci []MerceStock) error {
 		}
 	}
 
-	orderEvent := CreateOrderEvent{
+	orderEvent := common.CreateOrderEvent{
 		OrderId: orderId,
 		Note:    note,
 		Merci:   merci,

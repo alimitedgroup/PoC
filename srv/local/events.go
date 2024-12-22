@@ -9,22 +9,22 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	. "magazzino/common"
+	"github.com/alimitedgroup/palestra_poc/common"
 )
 
 const subjectName = "warehouse_events"
 
-var EventCallbacks = map[string]func(context.Context, Event, *sql.DB){
+var EventCallbacks = map[string]func(context.Context, common.Event, *sql.DB){
 	"create_merce_event": handleCreateMerceEvent,
 }
 
-func handleCreateMerceEvent(ctx context.Context, event Event, db *sql.DB) {
+func handleCreateMerceEvent(ctx context.Context, event common.Event, db *sql.DB) {
 	repo := ctx.Value("repo").(*Repo)
 	if repo == nil {
 		log.Fatalf("Error getting repo from context")
 	}
 
-	var createMerceEvent CreateMerceEvent
+	var createMerceEvent common.CreateMerceEvent
 	err := json.Unmarshal(event.Data.Message, &createMerceEvent)
 	if err != nil {
 		log.Fatalf("Error unmarshalling create merce event: %v", err)
@@ -55,7 +55,7 @@ func ListenEvents(nc *nats.Conn, db *sql.DB) *nats.Subscription {
 	ctx = context.WithValue(ctx, "repo", &Repo{})
 
 	sub, err := nc.Subscribe(fmt.Sprintf("%v.*", subjectName), func(m *nats.Msg) {
-		var event Event
+		var event common.Event
 		err := json.Unmarshal(m.Data, &event)
 		if err != nil {
 			log.Fatalf("Error unmarshalling event: %v", err)
