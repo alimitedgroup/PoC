@@ -1,6 +1,8 @@
 package common
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type AddStockEvent struct {
 	MerceId int64 `json:"merce_id"`
