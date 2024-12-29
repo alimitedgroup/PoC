@@ -26,10 +26,10 @@ func setupRoutes() *gin.Engine {
 	return r
 }
 
-func startServer(listenPort string) {
+func startServer(listenPort int) {
 	var r = setupRoutes()
 
-	err := r.Run(fmt.Sprintf(":%v", listenPort))
+	err := r.Run(fmt.Sprintf(":%d", listenPort))
 	if err != nil {
 		log.Fatal(err)
 	}

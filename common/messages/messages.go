@@ -8,3 +8,8 @@ type CatalogItem struct {
 type GetCatalogItem struct {
 	Id uint64 `json:"id"`
 }
+
+type StockUpdate []struct {
+	GoodId uint64 `json:"good_id"`
+	Amount int    `json:"amount"`
+}
