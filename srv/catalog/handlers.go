@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/alimitedgroup/palestra_poc/common/messages"
-	"github.com/alimitedgroup/palestra_poc/common/natserr"
+	"github.com/alimitedgroup/palestra_poc/common/natsutil"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go/micro"
@@ -24,7 +24,7 @@ func CreateHandler(ctx context.Context, req micro.Request, db *pgxpool.Pool) {
 	err := json.Unmarshal(req.Data(), &msg)
 	if err != nil {
 		slog.ErrorContext(ctx, "Error unmarshaling request data", "error", err)
-		natserr.Respond(&req, natserr.InvalidRequest)
+		natsutil.Respond(&req, natsutil.InvalidRequest)
 		return
 	}
 
@@ -32,7 +32,7 @@ func CreateHandler(ctx context.Context, req micro.Request, db *pgxpool.Pool) {
 	err = db.QueryRow(ctx, "INSERT INTO catalog(name) VALUES ($1) RETURNING id", msg.Name).Scan(&id)
 	if err != nil {
 		slog.ErrorContext(ctx, "Error inserting catalog item", "error", err)
-		natserr.Respond(&req, natserr.QueryError)
+		natsutil.Respond(&req, natsutil.QueryError)
 		return
 	}
 
@@ -48,7 +48,7 @@ func GetHandler(ctx context.Context, req micro.Request, db *pgxpool.Pool) {
 	err := json.Unmarshal(req.Data(), &msg)
 	if err != nil {
 		slog.ErrorContext(ctx, "Error unmarshaling request data", "error", err)
-		natserr.Respond(&req, natserr.InvalidRequest)
+		natsutil.Respond(&req, natsutil.InvalidRequest)
 		return
 	}
 
@@ -56,30 +56,30 @@ func GetHandler(ctx context.Context, req micro.Request, db *pgxpool.Pool) {
 	defer rows.Close()
 	if err != nil {
 		slog.ErrorContext(ctx, "Error querying catalog table", "error", err)
-		natserr.Respond(&req, natserr.QueryError)
+		natsutil.Respond(&req, natsutil.QueryError)
 		return
 	}
 
 	item, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[messages.CatalogItem])
 	if err != nil && errors.Is(err, pgx.ErrNoRows) {
-		natserr.Respond(&req, natserr.CatalogIdNotFound)
+		natsutil.Respond(&req, natsutil.CatalogIdNotFound)
 		return
 	} else if err != nil {
 		slog.ErrorContext(ctx, "Error collecting catalog item", "error", err)
-		natserr.Respond(&req, natserr.QueryError)
+		natsutil.Respond(&req, natsutil.QueryError)
 		return
 	}
 
 	data, err := json.Marshal(&item)
 	if err != nil {
 		slog.ErrorContext(ctx, "Error marshaling catalog item", "error", err)
-		natserr.Respond(&req, natserr.MarshalError)
+		natsutil.Respond(&req, natsutil.MarshalError)
 		return
 	}
 
 	err = req.Respond(data)
 	if err != nil {
-		natserr.Respond(&req, natserr.SendResponseError)
+		natsutil.Respond(&req, natsutil.SendResponseError)
 		return
 	}
 }
@@ -90,14 +90,14 @@ func ListHandler(ctx context.Context, req micro.Request, db *pgxpool.Pool) {
 	defer rows.Close()
 	if err != nil {
 		slog.ErrorContext(ctx, "Error querying catalog table", "error", err)
-		natserr.Respond(&req, natserr.QueryError)
+		natsutil.Respond(&req, natsutil.QueryError)
 		return
 	}
 
 	res, err := pgx.CollectRows(rows, pgx.RowToStructByName[messages.CatalogItem])
 	if err != nil {
 		slog.ErrorContext(ctx, "Error collecting catalog items", "error", err)
-		natserr.Respond(&req, natserr.QueryError)
+		natsutil.Respond(&req, natsutil.QueryError)
 		return
 	}
 
@@ -113,14 +113,14 @@ func UpdateHandler(ctx context.Context, req micro.Request, db *pgxpool.Pool) {
 	err := json.Unmarshal(req.Data(), &msg)
 	if err != nil {
 		slog.ErrorContext(ctx, "Error unmarshaling request data", "error", err)
-		natserr.Respond(&req, natserr.InvalidRequest)
+		natsutil.Respond(&req, natsutil.InvalidRequest)
 		return
 	}
 
 	_, err = db.Exec(ctx, "UPDATE catalog SET name = $1 WHERE id = $2", msg.Name, msg.Id)
 	if err != nil {
 		slog.ErrorContext(ctx, "Error updating catalog item", "error", err)
-		natserr.Respond(&req, natserr.QueryError)
+		natsutil.Respond(&req, natsutil.QueryError)
 		return
 	}
 
@@ -136,14 +136,14 @@ func DeleteHandler(ctx context.Context, req micro.Request, db *pgxpool.Pool) {
 	err := json.Unmarshal(req.Data(), &msg)
 	if err != nil {
 		slog.ErrorContext(ctx, "Error unmarshaling request data", "error", err)
-		natserr.Respond(&req, natserr.InvalidRequest)
+		natsutil.Respond(&req, natsutil.InvalidRequest)
 		return
 	}
 
 	_, err = db.Exec(ctx, "DELETE FROM catalog WHERE id = $1", msg.Id)
 	if err != nil {
 		slog.ErrorContext(ctx, "Error updating catalog item", "error", err)
-		natserr.Respond(&req, natserr.QueryError)
+		natsutil.Respond(&req, natsutil.QueryError)
 		return
 	}
 

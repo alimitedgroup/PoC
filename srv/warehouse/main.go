@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/alimitedgroup/palestra_poc/common/messages"
 	"github.com/nats-io/nats.go/jetstream"
 	"log/slog"
@@ -10,14 +11,13 @@ import (
 	"time"
 
 	"github.com/alimitedgroup/palestra_poc/common"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nats.go/micro"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 )
 
 var meter = otel.Meter("github.com/alimitedgroup/palestra_poc/srv/warehouse")
+var warehouseId = os.Getenv("WAREHOUSE_ID")
 
 func setupObservability(ctx context.Context, otlpUrl string) func(context.Context) {
 	otelshutdown := common.SetupOTelSDK(ctx, otlpUrl)
@@ -33,7 +33,6 @@ func setupObservability(ctx context.Context, otlpUrl string) func(context.Contex
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	dbConnStr := os.Getenv("DB_URL")
 	natsUrl := os.Getenv("NATS_URL")
 	otlpUrl := os.Getenv("OTLP_URL")
 
@@ -49,23 +48,16 @@ func main() {
 	}
 	defer nc.Close()
 
-	pg, err := pgxpool.New(ctx, dbConnStr)
+	js, err := jetstream.New(nc)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to connect to PostgreSQL", "error", err)
+		slog.ErrorContext(ctx, "Failed to init JetStream", "error", err)
 		return
 	}
-	defer pg.Close()
 
-	svc, js, err := setupWarehouse(ctx, nc, pg)
+	err = setupWarehouse(ctx, nc, js)
 	if err != nil {
 		return
 	}
-	defer func(svc *micro.Service) {
-		err = (*svc).Stop()
-		if err != nil {
-			slog.ErrorContext(ctx, "Failed to gracefully stop service", "error", err)
-		}
-	}(&svc)
 
 	// Random testing loop
 	go func(ctx context.Context) {
@@ -103,37 +95,39 @@ func main() {
 	slog.InfoContext(ctx, "Shutting down")
 }
 
-var warehouseId = "42"
+func setupWarehouse(ctx context.Context, nc *nats.Conn, js jetstream.JetStream) error {
+	// TODO: cleanly unsubscribe on ctrl-c
 
-func setupWarehouse(ctx context.Context, nc *nats.Conn, pg *pgxpool.Pool) (micro.Service, jetstream.JetStream, error) {
-	// Create NATS microservice
-	svc, err := micro.AddService(nc, micro.Config{Name: "catalog", Version: "0.0.1"})
+	// Initialization
+	err := InitStock(ctx, js)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to install service", "error", err)
-		return nil, nil, err
+		return err
 	}
-	grp := svc.AddGroup("warehouse")
-	js, err := jetstream.New(nc)
+	err = InitReservations(ctx, js)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to init JetStream", "error", err)
-	}
-
-	// Endpoint: `warehouse.ping`
-	err = grp.AddEndpoint("ping", common.NewHandler(ctx, pg, PingHandler))
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to add endpoint", "endpoint", "echo", "error", err)
-		return nil, nil, err
+		return err
 	}
 
 	// Endpoint: `stock_updates.<warehouseId>`
-	err = InitStock(ctx, &js)
-	if err != nil {
-		return nil, nil, err
-	}
+	// Enpoint: `warehouse.reserve_goods.<warehouseId>`
 
-	go startServer(8080)
+	// Endpoint: `warehouse.reserve.<warehouseId>`
+	_, err = nc.Subscribe(warehouseId, func(msg *nats.Msg) {})
+
+	// Endpoint: `warehouse.ping`
+	_, err = nc.Subscribe(fmt.Sprintf("warehouse.ping.%s", warehouseId), func(msg *nats.Msg) {
+		_ = msg.Respond([]byte("pong"))
+	})
+	if err != nil {
+		slog.ErrorContext(
+			ctx, "Failed to subscribe to nats",
+			"error", err,
+			"subject", fmt.Sprintf("warehouse.ping.%s", warehouseId),
+		)
+		return err
+	}
 
 	slog.InfoContext(ctx, "Service setup successful", "service", "warehouse", "warehouseId", warehouseId)
 
-	return svc, js, nil
+	return nil
 }
