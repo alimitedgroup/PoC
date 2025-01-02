@@ -1,4 +1,4 @@
 create table catalog (
-    id bigint primary key,
+    id serial primary key,
     name text not null
 );

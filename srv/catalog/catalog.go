@@ -88,10 +88,38 @@ func setupCatalog(ctx context.Context, nc *nats.Conn, pg *pgxpool.Pool) (micro.S
 		return nil, err
 	}
 
+	// Endpoint: `catalog.create`
+	err = grp.AddEndpoint("create", common.NewHandler(ctx, pg, CreateHandler))
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to add endpoint", "endpoint", "create", "error", err)
+		return nil, err
+	}
+
+	// Endpoint: `catalog.list`
+	err = grp.AddEndpoint("list", common.NewHandler(ctx, pg, ListHandler))
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to add endpoint", "endpoint", "list", "error", err)
+		return nil, err
+	}
+
 	// Endpoint: `catalog.get`
 	err = grp.AddEndpoint("get", common.NewHandler(ctx, pg, GetHandler))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to add endpoint", "endpoint", "get", "error", err)
+		return nil, err
+	}
+
+	// Endpoint: `catalog.update`
+	err = grp.AddEndpoint("update", common.NewHandler(ctx, pg, UpdateHandler))
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to add endpoint", "endpoint", "update", "error", err)
+		return nil, err
+	}
+
+	// Endpoint: `catalog.delete`
+	err = grp.AddEndpoint("delete", common.NewHandler(ctx, pg, DeleteHandler))
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to add endpoint", "endpoint", "delete", "error", err)
 		return nil, err
 	}
 

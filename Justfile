@@ -11,6 +11,10 @@ down:
 
 reset:
     docker compose down -v
+    just up
+
+doc:
+    go run golang.org/x/pkgsite/cmd/pkgsite@latest -dev
 
 catalog: up
     go run github.com/alimitedgroup/palestra_poc/srv/catalog

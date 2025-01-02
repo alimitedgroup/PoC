@@ -21,7 +21,7 @@ services:
   catalog:
     build: { args: { SERVICE: catalog } }
     environment:
-      - DB_URL=postgres://catalog:catalog@localhost:5432/catalog
+      - DB_URL=postgres://catalog:catalog@catalog-postgres:5432/catalog
       - NATS_URL=nats://nats:4222
       - OTLP_URL=collector:4317
   catalog-postgres:
