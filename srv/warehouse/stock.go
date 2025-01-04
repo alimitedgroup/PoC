@@ -12,10 +12,17 @@ import (
 	"sync"
 )
 
+// stock contains the currently stocked items inside of the field `s`,
+// and the amounts of items that have been reserved, inside the `r` field.
+// Each of these fields is a map from good id to stocked (or reserved) amount.
+//
+// Please note that this singleton should be locked before being used by
+// calling its `Lock()` method.
 var stock = struct {
 	sync.Mutex
 	s map[uint64]int
-}{sync.Mutex{}, make(map[uint64]int)}
+	r map[uint64]int
+}{sync.Mutex{}, make(map[uint64]int), make(map[uint64]int)}
 
 func InitStock(ctx context.Context, js jetstream.JetStream) error {
 	stock.Lock()
@@ -64,6 +71,7 @@ func StockUpdateHandler(ctx context.Context, req jetstream.Msg) {
 	for _, row := range msg {
 		// stock MUST be locked
 		stock.s[row.GoodId] = row.Amount
+		stock.r[row.GoodId] = 0
 	}
 }
 

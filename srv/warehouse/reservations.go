@@ -76,7 +76,12 @@ func ReservationHandler(ctx context.Context, req jetstream.Msg) {
 
 	meta, err := req.Metadata()
 	if err != nil {
-		// TODO
+		slog.ErrorContext(
+			ctx, "Error getting metadata for message",
+			"error", err,
+			"subject", req.Subject(),
+			"message", req.Headers()["Nats-Msg-Id"][0],
+		)
 		return
 	}
 
@@ -105,4 +110,21 @@ func removeReservationsLoop(ctx context.Context) {
 			reservations.Unlock()
 		}
 	}
+}
+
+func PublishReservation(ctx context.Context, js jetstream.JetStream, msg messages.Reservation) error {
+	reservations.Lock()
+	defer reservations.Unlock()
+
+	body, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal stock update: %w", err)
+	}
+
+	_, err = js.Publish(ctx, fmt.Sprintf("reservations.%s", warehouseId), body)
+	if err != nil {
+		return fmt.Errorf("failed to publish stock update: %w", err)
+	}
+
+	return nil
 }
