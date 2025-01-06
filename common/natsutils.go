@@ -2,6 +2,8 @@ package common
 
 import (
 	"context"
+	"time"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go/micro"
 	"go.opentelemetry.io/otel/attribute"
@@ -23,9 +25,14 @@ func (h StatefulHandler) Handle(req micro.Request) {
 		attribute.String("subject", (req).Subject()),
 	))
 
-	// TODO: misurare i tempi di risposta, e salvarli in un histogram
+	// misurare i tempi di risposta, e salvarli in un histogram
+	start := time.Now()
 
 	h.handler(h.ctx, req, h.db)
+
+	ResponseTime.Record(h.ctx, time.Since(start).Milliseconds(), metric.WithAttributes(
+		attribute.String("subject", (req).Subject()),
+	))
 }
 
 func NewHandler(ctx context.Context, db *pgxpool.Pool, handler func(context.Context, micro.Request, *pgxpool.Pool)) StatefulHandler {

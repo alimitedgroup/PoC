@@ -25,6 +25,11 @@ func setupObservability(ctx context.Context, otlpUrl string) func(context.Contex
 		slog.ErrorContext(ctx, "failed to init metric `num_requests`", "error", err)
 	}
 
+	common.ResponseTime, err = meter.Int64Histogram("request_response_time", metric.WithDescription("Response time of request handlers in millisecond"))
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to init `request_response_time`", "error", err)
+	}
+
 	return otelshutdown
 }
 

@@ -3,6 +3,13 @@ package common
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
+	"regexp"
+	"runtime/debug"
+	"sync"
+	"time"
+
 	"github.com/google/uuid"
 	slogotel "github.com/remychantenay/slog-otel"
 	slogmulti "github.com/samber/slog-multi"
@@ -22,15 +29,10 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log/slog"
-	"os"
-	"regexp"
-	"runtime/debug"
-	"sync"
-	"time"
 )
 
 var NumRequests metric.Int64Counter
+var ResponseTime metric.Int64Histogram
 
 func getBuildInfo() (string, string) {
 	bi, ok := debug.ReadBuildInfo()
