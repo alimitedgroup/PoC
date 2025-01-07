@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/alimitedgroup/palestra_poc/common/messages"
 	"github.com/nats-io/nats.go"
 )
@@ -13,7 +14,7 @@ func PingHandler(msg *nats.Msg) {
 }
 
 // ReserveHandler is the handler for `warehouse.reserve`
-func ReserveHandler(req *nats.Msg) {
+func ReserveHandler(ctx context.Context, req *nats.Msg) {
 	var msg messages.ReserveStock
 	err := json.Unmarshal(req.Data, &msg)
 	if err != nil {
@@ -39,7 +40,7 @@ func ReserveHandler(req *nats.Msg) {
 	if ok {
 		// If the reservation request can be satisfied...
 		err = PublishReservation(
-			context.TODO(),
+			ctx,
 			js,
 			messages.Reservation{
 				ID:            msg.ID,

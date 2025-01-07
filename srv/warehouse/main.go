@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
+	"os/signal"
+
 	"github.com/alimitedgroup/palestra_poc/common"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
-	"log/slog"
-	"os"
-	"os/signal"
 )
 
 var meter = otel.Meter("github.com/alimitedgroup/palestra_poc/srv/warehouse")
@@ -83,7 +84,9 @@ func setupWarehouse(ctx context.Context, nc *nats.Conn, js jetstream.JetStream) 
 	// Endpoint: `stock_updates.<warehouseId>`
 
 	// Endpoint: `warehouse.reserve.<warehouseId>`
-	_, err = nc.Subscribe(fmt.Sprintf("warehouse.reserve.%s", warehouseId), ReserveHandler)
+	_, err = nc.Subscribe(fmt.Sprintf("warehouse.reserve.%s", warehouseId), func(req *nats.Msg) {
+		ReserveHandler(ctx, req)
+	})
 	if err != nil {
 		slog.ErrorContext(
 			ctx, "Failed to subscribe to NATS",
