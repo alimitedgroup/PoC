@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 
 	"github.com/alimitedgroup/palestra_poc/common/messages"
 	"github.com/nats-io/nats.go"
@@ -55,5 +56,35 @@ func ReserveHandler(ctx context.Context, req *nats.Msg) {
 		_ = req.Respond([]byte("ok"))
 	} else {
 		_ = req.Respond([]byte("not enough stock"))
+	}
+}
+
+func StockUpdateHandler(ctx context.Context, req *nats.Msg) {
+	var msg messages.StockUpdate
+	err := json.Unmarshal(req.Data, &msg)
+	if err != nil {
+		slog.ErrorContext(
+			ctx,
+			"Error unmarshalling message",
+			"error", err,
+			"subject", req.Subject,
+			"message", req.Header["Nats-Msg-Id"][0],
+		)
+		return
+	}
+
+	stock.Lock()
+	defer stock.Unlock()
+
+	// stock MUST be locked
+	for _, row := range msg {
+		stock.s[row.GoodId] = row.Amount
+
+		// Reset previous reservations
+		oldR, exist := stock.r[row.GoodId]
+		if !exist {
+			oldR = 0
+		}
+		stock.r[row.GoodId] = oldR
 	}
 }

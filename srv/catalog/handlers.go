@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+
 	"github.com/alimitedgroup/palestra_poc/common/messages"
 	"github.com/alimitedgroup/palestra_poc/common/natsutil"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/nats-io/nats.go/micro"
-	"log/slog"
 )
 
 // PingHandler is the handler for `catalog.ping`
@@ -19,7 +22,7 @@ func PingHandler(_ context.Context, req micro.Request, _ *pgxpool.Pool) {
 }
 
 // CreateHandler is the handler for `catalog.create`
-func CreateHandler(ctx context.Context, req micro.Request, db *pgxpool.Pool) {
+func CreateHandler(ctx context.Context, req micro.Request, db *pgxpool.Pool, js jetstream.JetStream) {
 	var msg messages.CreateCatalogItem
 	err := json.Unmarshal(req.Data(), &msg)
 	if err != nil {
@@ -39,6 +42,26 @@ func CreateHandler(ctx context.Context, req micro.Request, db *pgxpool.Pool) {
 	err = req.Respond([]byte(fmt.Sprintf("%d", id)))
 	if err != nil {
 		slog.ErrorContext(ctx, "Error sending response to client", "error", err)
+	}
+
+	stockUpdateMsg := messages.StockUpdate{{
+		GoodId: uint64(id),
+		Amount: 0,
+	}}
+
+	body, err := json.Marshal(stockUpdateMsg)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to marshal value as JSON", "error", err)
+	}
+
+	// TODO: This isn't atomic with write to the database,
+	// maybe use Transactional Messaging (listen to the WAL of the database and send the message after the transaction is committed)
+	_, err = js.PublishMsg(ctx, &nats.Msg{
+		Subject: fmt.Sprintf("stock_updates.*"),
+		Data:    body,
+	})
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to publish message", "error", err)
 	}
 }
 

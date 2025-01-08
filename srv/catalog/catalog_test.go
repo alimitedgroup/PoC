@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/alimitedgroup/palestra_poc/common"
 	natsserver "github.com/nats-io/nats-server/v2/test"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
-	"testing"
-	"time"
 )
 
 func TestName(t *testing.T) {
@@ -24,7 +25,7 @@ func TestName(t *testing.T) {
 	// require.NoError(t, err)
 	// defer mock.Close()
 
-	catalog, err := setupCatalog(context.Background(), nc, nil)
+	catalog, err := setupCatalog(context.Background(), nc, nil, nil)
 	require.NoError(t, err)
 	defer catalog.Stop()
 

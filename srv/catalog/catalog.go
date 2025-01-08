@@ -9,6 +9,7 @@ import (
 	"github.com/alimitedgroup/palestra_poc/common"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/nats-io/nats.go/micro"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
@@ -51,6 +52,12 @@ func main() {
 	}
 	defer nc.Close()
 
+	js, err := jetstream.New(nc)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to init JetStream", "error", err)
+		return
+	}
+
 	pg, err := pgxpool.New(ctx, dbConnStr)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to connect to PostgreSQL", "error", err)
@@ -58,7 +65,7 @@ func main() {
 	}
 	defer pg.Close()
 
-	svc, err := setupCatalog(ctx, nc, pg)
+	svc, err := setupCatalog(ctx, nc, pg, js)
 	if err != nil {
 		return
 	}
@@ -77,7 +84,7 @@ func main() {
 	slog.InfoContext(ctx, "Shutting down")
 }
 
-func setupCatalog(ctx context.Context, nc *nats.Conn, pg *pgxpool.Pool) (micro.Service, error) {
+func setupCatalog(ctx context.Context, nc *nats.Conn, pg *pgxpool.Pool, js jetstream.JetStream) (micro.Service, error) {
 	// Create NATS microservice
 	svc, err := micro.AddService(nc, micro.Config{Name: "catalog", Version: "0.0.1"})
 	if err != nil {
@@ -94,7 +101,9 @@ func setupCatalog(ctx context.Context, nc *nats.Conn, pg *pgxpool.Pool) (micro.S
 	}
 
 	// Endpoint: `catalog.create`
-	err = grp.AddEndpoint("create", common.NewHandler(ctx, pg, CreateHandler))
+	err = grp.AddEndpoint("create", common.NewHandler(ctx, pg, func(ctx context.Context, r micro.Request, p *pgxpool.Pool) {
+		CreateHandler(ctx, r, p, js)
+	}))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to add endpoint", "endpoint", "create", "error", err)
 		return nil, err

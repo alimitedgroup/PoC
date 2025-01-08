@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"sync"
+
 	"github.com/alimitedgroup/palestra_poc/common/messages"
 	"github.com/alimitedgroup/palestra_poc/common/natsutil"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	"log/slog"
-	"sync"
 )
 
 // stock contains the currently stocked items inside of the field `s`,
@@ -43,7 +44,7 @@ func InitStock(ctx context.Context, js jetstream.JetStream) error {
 		js,
 		"stock_updates",
 		jetstream.OrderedConsumerConfig{FilterSubjects: []string{fmt.Sprintf("stock_updates.%s", warehouseId)}},
-		func(msg jetstream.Msg) { StockUpdateHandler(ctx, msg); _ = msg.Ack() },
+		func(msg jetstream.Msg) { InitStockUpdateHandler(ctx, msg); _ = msg.Ack() },
 	)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to consume stock updates", "error", err, "stream", "stock_updates")
@@ -54,7 +55,7 @@ func InitStock(ctx context.Context, js jetstream.JetStream) error {
 	return nil
 }
 
-func StockUpdateHandler(ctx context.Context, req jetstream.Msg) {
+func InitStockUpdateHandler(ctx context.Context, req jetstream.Msg) {
 	var msg messages.StockUpdate
 	err := json.Unmarshal(req.Data(), &msg)
 	if err != nil {

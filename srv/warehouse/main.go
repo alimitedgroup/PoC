@@ -82,6 +82,17 @@ func setupWarehouse(ctx context.Context, nc *nats.Conn, js jetstream.JetStream) 
 	}
 
 	// Endpoint: `stock_updates.<warehouseId>`
+	_, err = nc.Subscribe(fmt.Sprintf("stock_updates.%s", warehouseId), func(req *nats.Msg) {
+		StockUpdateHandler(ctx, req)
+	})
+	if err != nil {
+		slog.ErrorContext(
+			ctx, "Failed to subscribe to NATS",
+			"error", err,
+			"subject", fmt.Sprintf("stock_updates.%s", warehouseId),
+		)
+		return err
+	}
 
 	// Endpoint: `warehouse.reserve.<warehouseId>`
 	_, err = nc.Subscribe(fmt.Sprintf("warehouse.reserve.%s", warehouseId), func(req *nats.Msg) {
