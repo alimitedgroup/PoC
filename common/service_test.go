@@ -1,9 +1,8 @@
-package natsutil
+package common
 
 import (
 	"context"
 	"fmt"
-	"github.com/alimitedgroup/palestra_poc/common"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/require"
@@ -16,7 +15,7 @@ func TestService_RegisterJsHandlerExisting(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	t.Cleanup(cancel)
 
-	nc := common.NewInProcessNATSServer(t)
+	nc := NewInProcessNATSServer(t)
 	t.Cleanup(func() { nc.Close() })
 
 	js, err := jetstream.New(nc)
@@ -51,15 +50,14 @@ func TestService_RegisterHandler(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	t.Cleanup(cancel)
 
-	nc := common.NewInProcessNATSServer(t)
-	t.Cleanup(func() { nc.Close() })
+	nc := NewInProcessNATSServer(t)
+	t.Cleanup(nc.Close)
 
 	type state struct{ s []string }
 	service := NewService(ctx, nc, state{})
-	err := service.RegisterHandler("subject", func(ctx context.Context, s *Service[state], msg *nats.Msg) {
+	service.RegisterHandler("subject", func(ctx context.Context, s *Service[state], msg *nats.Msg) {
 		s.State().s = append(s.State().s, string(msg.Data))
 	})
-	require.NoError(t, err)
 
 	require.NoError(t, nc.Publish("subject", []byte("hello")))
 	require.NoError(t, nc.Publish("subject", []byte("world")))
@@ -72,15 +70,15 @@ func TestService_RegisterHandler(t *testing.T) {
 func TestService_Cleanup(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	nc := common.NewInProcessNATSServer(t)
+	nc := NewInProcessNATSServer(t)
 	t.Cleanup(nc.Close)
 
 	require.Zero(t, nc.NumSubscriptions())
 
 	svc := NewService(ctx, nc, struct{}{})
-	require.NoError(t, svc.RegisterHandler("cleanup", func(ctx context.Context, s *Service[struct{}], msg *nats.Msg) {
+	svc.RegisterHandler("cleanup", func(ctx context.Context, s *Service[struct{}], msg *nats.Msg) {
 		require.NoError(t, msg.Respond(msg.Data))
-	}))
+	})
 
 	resp, err := nc.Request("cleanup", []byte("hello"), 50*time.Millisecond)
 	require.NoError(t, err)

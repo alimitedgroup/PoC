@@ -1,4 +1,4 @@
-package natsutil
+package common
 
 import (
 	"context"
@@ -44,6 +44,8 @@ func NewService[S any](ctx context.Context, nc *nats.Conn, state S) *Service[S] 
 				slog.ErrorContext(ctx, "Failed to drain subscription", "error", err, "subject", sub.Subject)
 			}
 		}
+
+		nc.Close()
 	}(ctx)
 
 	return s
@@ -68,17 +70,16 @@ func (s *Service[S]) JetStream() jetstream.JetStream {
 }
 
 // RegisterHandler registers a handler for the given NATS subject
-func (s *Service[S]) RegisterHandler(subject string, handler Handler[S]) error {
+func (s *Service[S]) RegisterHandler(subject string, handler Handler[S]) {
 	subscription, err := s.NatsConn().Subscribe(subject, func(msg *nats.Msg) {
 		handler(s.ctx, s, msg)
 	})
 	if err != nil {
-		return err
+		slog.ErrorContext(s.ctx, "Failed to subscribe to subject", "subject", subject, "error", err)
+		panic(err)
 	}
 
 	s.subscriptions = append(s.subscriptions, subscription)
-
-	return nil
 }
 
 // RegisterJsHandlerExisting registers a handler for the given JetStream stream.

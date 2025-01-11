@@ -1,6 +1,9 @@
 package natsutil
 
-import "github.com/nats-io/nats.go/micro"
+import (
+	"fmt"
+	"github.com/nats-io/nats.go"
+)
 
 type Description struct {
 	code        string
@@ -15,6 +18,9 @@ var (
 	QueryError        = Description{"internal_error", "Failed to query database"}
 )
 
-func Respond(request *micro.Request, err Description) {
-	_ = (*request).Error(err.code, err.description, []byte{})
+func Respond(request *nats.Msg, err Description) {
+	_ = request.Respond([]byte(fmt.Sprintf("%s: %s", err.code, err.description)))
+	if err == SendResponseError || err == QueryError {
+		_ = request.Nak()
+	}
 }
