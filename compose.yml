@@ -1,198 +1,60 @@
 volumes:
-  catalog_data:
-  nats_data:
+    catalog_data:
+    nats_data:
 
 services:
-  nats:
-    image: nats:alpine
-    ports:
-      - "4222:4222"
-    command:
-      - "--jetstream"
-      - "--store_dir=/data/jetstream"
-    volumes:
-      - nats_data:/data/jetstream
-    healthcheck:
-      test: ["CMD-SHELL", "wget http://localhost:8222/healthz -q -S -O -"]
-      interval: 1s
-      timeout: 5s
-      retries: 5
+    nats:
+        image: nats:alpine
+        ports:
+            - "4222:4222"
+        command:
+            - "--jetstream"
+            - "--store_dir=/data/jetstream"
+        volumes:
+            - nats_data:/data/jetstream
+        healthcheck:
+            test: ["CMD-SHELL", "wget http://localhost:8222/healthz -q -S -O -"]
+            interval: 1s
+            timeout: 5s
+            retries: 5
 
-  catalog:
-    build: { args: { SERVICE: catalog } }
-    environment:
-      - DB_URL=postgres://catalog:catalog@catalog-postgres:5432/catalog
-      - NATS_URL=nats://nats:4222
-      - OTLP_URL=collector:4317
-  catalog-postgres:
-    image: postgres:alpine
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=catalog
-      - POSTGRES_PASSWORD=catalog
-    volumes:
-      - ./srv/catalog/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-      - catalog_data:/var/lib/postgresql/data
+    catalog:
+        build: { args: { SERVICE: catalog } }
+        environment:
+            - DB_URL=postgres://catalog:catalog@catalog-postgres:5432/catalog
+            - NATS_URL=nats://nats:4222
+            - OTLP_URL=collector:4317
+    catalog-postgres:
+        image: postgres:alpine
+        ports:
+            - "5432:5432"
+        environment:
+            - POSTGRES_USER=catalog
+            - POSTGRES_PASSWORD=catalog
+        volumes:
+            - ./srv/catalog/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+            - catalog_data:/var/lib/postgresql/data
 
-  # Observability stack
-  collector:
-    image: otel/opentelemetry-collector-contrib
-    ports:
-      - "4317:4317"
-    volumes:
-      - ./containers/collector.yml:/etc/otelcol-contrib/config.yaml:ro
-  loki:
-    image: grafana/loki:3.3.1
-  prometheus:
-    image: prom/prometheus
-    ports:
-      - "9090:9090"
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--web.enable-otlp-receiver"
-  grafana:
-    image: grafana/grafana
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./containers/grafana:/etc/grafana/provisioning/
-
-  # local_service:
-  #     container_name: local_service
-  #     build:
-  #         context: ./
-  #         dockerfile: ./containers/local/Dockerfile
-  #     restart: always
-  #     environment:
-  #         - LISTEN_PORT=8000
-  #         - NATS_URL=nats://queue:4222
-  #         - DB_URL=host=local_db user=postgres password=postgres dbname=database sslmode=disable
-  #     ports:
-  #         - 8089:8000
-  #     networks:
-  #         - local-srv-network
-  #     depends_on:
-  #         local_db:
-  #             condition: service_healthy
-  #         queue:
-  #             condition: service_healthy
-  #         local_wal_logger:
-  #             condition: service_healthy
-  #     healthcheck:
-  #         test: ["CMD-SHELL", "wget http://localhost:8000/health -q -S -O -"]
-  #         interval: 5s
-  #         timeout: 5s
-  #         retries: 5
-  #         start_period: 10s
-
-  # local_db:
-  #     container_name: local_db
-  #     build:
-  #         context: ./containers/local/db
-  #         dockerfile: ./Dockerfile
-  #     ports:
-  #         - 5435:5432
-  #     volumes:
-  #         - local_db_data:/var/lib/postgresql/data
-  #     environment:
-  #         - POSTGRES_PASSWORD=postgres
-  #         - POSTGRES_USER=postgres
-  #         - POSTGRES_DB=database
-  #     networks:
-  #         - local-srv-network
-  #     healthcheck:
-  #         test: ["CMD-SHELL", "pg_isready -U postgres"]
-  #         interval: 5s
-  #         timeout: 5s
-  #         retries: 5
-
-  # local_wal_logger:
-  #     container_name: local_wal_logger
-  #     image: ihippik/wal-listener:v2.7.1
-  #     volumes:
-  #         - ./containers/local/wal_logger.yml:/app/config.yml
-  #     networks:
-  #         - local-srv-network
-  #     depends_on:
-  #         local_db:
-  #             condition: service_healthy
-  #         queue:
-  #             condition: service_healthy
-  #     healthcheck:
-  #         # TODO: no wget/curl on wal-listener image, maybe create our own image and fork
-  #         # test: ["CMD-SHELL", "wget http://localhost:8000/healthz -q -S -O -"]
-  #         test: ["CMD-SHELL", "exit 0"] # NO-OP
-  #         interval: 5s
-  #         timeout: 5s
-  #         retries: 5
-
-  # central_service:
-  #     container_name: central_service
-  #     build:
-  #         context: ./
-  #         dockerfile: ./containers/central/Dockerfile
-  #     restart: always
-  #     environment:
-  #         - NATS_URL=nats://queue:4222
-  #         - DB_URL=host=central_db user=postgres password=postgres dbname=database sslmode=disable
-  #         - LISTEN_PORT=8000
-  #     ports:
-  #         - 8088:8000
-  #     networks:
-  #         - central-srv-network
-  #     depends_on:
-  #         central_db:
-  #             condition: service_healthy
-  #         central_wal_logger:
-  #             condition: service_healthy
-  #         queue:
-  #             condition: service_healthy
-  #     healthcheck:
-  #         test: ["CMD-SHELL", "wget http://localhost:8000/health -q -S -O -"]
-  #         interval: 5s
-  #         timeout: 5s
-  #         retries: 5
-  #         start_period: 10s
-
-  # central_db:
-  #     container_name: central_db
-  #     build:
-  #         context: ./containers/central/db/
-  #         dockerfile: ./Dockerfile
-  #     ports:
-  #         - 5436:5432
-  #     volumes:
-  #         - central_db_data:/var/lib/postgresql/data
-  #     environment:
-  #         - POSTGRES_PASSWORD=postgres
-  #         - POSTGRES_USER=postgres
-  #         - POSTGRES_DB=database
-  #     networks:
-  #         - central-srv-network
-  #     healthcheck:
-  #         test: ["CMD-SHELL", "pg_isready -U postgres"]
-  #         interval: 30s
-  #         timeout: 5s
-  #         retries: 5
-
-  # central_wal_logger:
-  #     container_name: central_wal_logger
-  #     image: ihippik/wal-listener:v2.7.1
-  #     volumes:
-  #         - ./containers/central/wal_logger.yml:/app/config.yml
-  #     networks:
-  #         - central-srv-network
-  #     depends_on:
-  #         central_db:
-  #             condition: service_healthy
-  #         queue:
-  #             condition: service_healthy
-  #     healthcheck:
-  #         # TODO: no wget/curl on wal-listener image, maybe create our own image and fork
-  #         # test: ["CMD-SHELL", "wget http://localhost:8000/healthz -q -S -O -"]
-  #         test: ["CMD-SHELL", "exit 0"] # NO-OP
-  #         interval: 5s
-  #         timeout: 5s
-  #         retries: 5
+    # Observability stack
+    collector:
+        image: otel/opentelemetry-collector-contrib
+        ports:
+            - "4317:4317"
+        volumes:
+            - ./containers/collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    loki:
+        image: grafana/loki:3.3.1
+    prometheus:
+        image: prom/prometheus
+        ports:
+            - "9090:9090"
+        command:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--web.enable-otlp-receiver"
+    grafana:
+        image: grafana/grafana
+        ports:
+            - "3000:3000"
+        volumes:
+            - ./containers/grafana:/etc/grafana/provisioning/
