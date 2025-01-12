@@ -7,14 +7,14 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/alimitedgroup/palestra_poc/common"
+	"github.com/alimitedgroup/PoC/common"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 )
 
-var meter = otel.Meter("github.com/alimitedgroup/palestra_poc/srv/warehouse")
+var meter = otel.Meter("github.com/alimitedgroup/PoC/srv/warehouse")
 var warehouseId = os.Getenv("WAREHOUSE_ID")
 var js jetstream.JetStream
 

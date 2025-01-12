@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/alimitedgroup/palestra_poc/common"
+	"github.com/alimitedgroup/PoC/common"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	"go.opentelemetry.io/otel"
@@ -17,7 +17,7 @@ type catalogState struct {
 	db *pgxpool.Pool
 }
 
-var meter = otel.Meter("github.com/alimitedgroup/palestra_poc/srv/catalog")
+var meter = otel.Meter("github.com/alimitedgroup/PoC/srv/catalog")
 
 func setupObservability(ctx context.Context, otlpUrl string) func(context.Context) {
 	otelshutdown := common.SetupOTelSDK(ctx, otlpUrl)

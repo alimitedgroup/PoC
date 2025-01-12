@@ -9,4 +9,7 @@
     "[go]": {
         "editor.defaultFormatter": "golang.go"
     },
+    "[just]": {
+        "editor.defaultFormatter": "TobiasHochguertel.just-formatter"
+    }
 }

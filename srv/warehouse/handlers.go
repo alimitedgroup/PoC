@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	"github.com/alimitedgroup/palestra_poc/common/messages"
+	"github.com/alimitedgroup/PoC/common/messages"
 	"github.com/nats-io/nats.go"
 )
 

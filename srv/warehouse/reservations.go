@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/alimitedgroup/palestra_poc/common/messages"
-	"github.com/alimitedgroup/palestra_poc/common/natsutil"
-	"github.com/nats-io/nats.go/jetstream"
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/alimitedgroup/PoC/common/messages"
+	"github.com/alimitedgroup/PoC/common/natsutil"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 type Reservation struct {

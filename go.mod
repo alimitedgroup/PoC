@@ -1,4 +1,4 @@
-module github.com/alimitedgroup/palestra_poc
+module github.com/alimitedgroup/PoC
 
 go 1.23.4
 

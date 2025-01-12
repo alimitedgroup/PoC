@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/alimitedgroup/palestra_poc/common"
 	"log/slog"
 
-	"github.com/alimitedgroup/palestra_poc/common/messages"
-	"github.com/alimitedgroup/palestra_poc/common/natsutil"
+	"github.com/alimitedgroup/PoC/common"
+
+	"github.com/alimitedgroup/PoC/common/messages"
+	"github.com/alimitedgroup/PoC/common/natsutil"
 	"github.com/jackc/pgx/v5"
 	"github.com/nats-io/nats.go"
 )

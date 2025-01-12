@@ -1,4 +1,4 @@
-set export
+set export := true
 
 up:
     docker compose up -d --build
@@ -13,13 +13,11 @@ reset:
 doc:
     go run golang.org/x/pkgsite/cmd/pkgsite@latest -dev
 
-catalog \
-    $OTLP_URL="localhost:4317" \
-    $DB_URL="postgres://catalog:catalog@localhost:5432/catalog": up
-    go run github.com/alimitedgroup/palestra_poc/srv/catalog
+catalog $OTLP_URL="localhost:4317" $DB_URL="postgres://catalog:catalog@localhost:5432/catalog": up
+    go run github.com/alimitedgroup/PoC/srv/catalog
 
-warehouse \
-    $OTLP_URL="localhost:4317" \
-    $DB_URL="postgres://warehouse:warehouse@localhost:5432/warehouse" \
-    $WAREHOUSE_ID="42": up
-    go run github.com/alimitedgroup/palestra_poc/srv/warehouse
+orders $OTLP_URL="localhost:4317" $DB_URL="postgres://orders:orders@localhost:5432/orders": up
+    go run github.com/alimitedgroup/PoC/srv/orders
+
+warehouse $OTLP_URL="localhost:4317" $DB_URL="postgres://warehouse:warehouse@localhost:5432/warehouse" $WAREHOUSE_ID="42": up
+    go run github.com/alimitedgroup/PoC/srv/warehouse

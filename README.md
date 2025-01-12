@@ -4,17 +4,27 @@ The champagne of reliable distributed systems.
 
 ## Services
 
-- `catalog`: manages the list of items of this warehouse
+-   `catalog`: manages the list of items of this warehouse
+
+# Prerequisites
+
+install:
+
+-   https://github.com/casey/just
+-   golang
+-   docker
+-   docker compose
+-   natscli
 
 ## Commands
 
 ### Run
 
-`docker compose up -d --build`
+`just up`
 
 ### Clean environment
 
-`docker compose down --volumes`
+`just down`
 
 ### Listen messages
 
