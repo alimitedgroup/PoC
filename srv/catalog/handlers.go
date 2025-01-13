@@ -102,19 +102,19 @@ func ListHandler(ctx context.Context, s *common.Service[catalogState], req *nats
 	}
 
 	res := make([]messages.CatalogItem, 0)
-	updates := w.Updates()
+	var item messages.CatalogItem
 
-	for v := range updates {
-		var item messages.CatalogItem
-		val := v.Value()
-		slog.Info("Got catalog item", "value", string(val))
-		err = json.Unmarshal(val, &item)
+	for v := range w.Updates() {
+		if v == nil {
+			break
+		}
+		err = json.Unmarshal(v.Value(), &item)
 		if err != nil {
 			slog.ErrorContext(ctx, "Error unmarshaling catalog item", "error", err)
 			natsutil.Respond(req, natsutil.MarshalError)
 			return
 		}
-		slog.Info("Got catalog item", "item", item)
+		res = append(res, item)
 	}
 
 	resBody, err := json.Marshal(res)
