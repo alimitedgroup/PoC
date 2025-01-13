@@ -3,7 +3,7 @@ package messages
 import "github.com/google/uuid"
 
 type CatalogItem struct {
-	Id   uint64 `json:"id" db:"id"`
+	Id   string `json:"id" db:"id"`
 	Name string `json:"name" db:"name"`
 }
 
@@ -12,18 +12,18 @@ type CreateCatalogItem struct {
 }
 
 type GetCatalogItem struct {
-	Id uint64 `json:"id"`
+	Id string `json:"id"`
 }
 
 type StockUpdate []struct {
-	GoodId uint64 `json:"good_id"`
+	GoodId string `json:"good_id"`
 	Amount int    `json:"amount"`
 }
 
 type Reservation struct {
 	ID            uuid.UUID `json:"id"`
 	ReservedStock []struct {
-		GoodId uint64 `json:"good_id"`
+		GoodId string `json:"good_id"`
 		Amount int    `json:"amount"`
 	} `json:"reserved_stock"`
 }
@@ -31,7 +31,7 @@ type Reservation struct {
 type ReserveStock struct {
 	ID             uuid.UUID `json:"id"`
 	RequestedStock []struct {
-		GoodId uint64 `json:"good_id"`
+		GoodId string `json:"good_id"`
 		Amount int    `json:"amount"`
 	} `json:"requested_stock"`
 }

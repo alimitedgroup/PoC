@@ -21,8 +21,8 @@ import (
 // calling its `Lock()` method.
 type stockState struct {
 	sync.Mutex
-	s map[uint64]int
-	r map[uint64]int
+	s map[string]int
+	r map[string]int
 }
 
 func StockUpdateHandler(ctx context.Context, s *common.Service[warehouseState], req jetstream.Msg) error {

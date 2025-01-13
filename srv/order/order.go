@@ -13,7 +13,7 @@ import (
 
 type stockState struct {
 	sync.Mutex
-	m map[uint64]int
+	m map[string]int
 }
 
 type orderState struct {
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	svc := common.NewService(ctx, nc, orderState{
-		stock: stockState{sync.Mutex{}, make(map[uint64]int)},
+		stock: stockState{sync.Mutex{}, make(map[string]int)},
 	})
 
 	if common.CreateStream(ctx, svc.JetStream(), common.StockUpdatesStreamConfig) != nil {

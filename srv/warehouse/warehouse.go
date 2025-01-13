@@ -52,7 +52,7 @@ func main() {
 	defer nc.Close()
 
 	srv := common.NewService(ctx, nc, warehouseState{
-		stock:       stockState{sync.Mutex{}, make(map[uint64]int), make(map[uint64]int)},
+		stock:       stockState{sync.Mutex{}, make(map[string]int), make(map[string]int)},
 		reservation: reservationState{sync.Mutex{}, make([]Reservation, 0)},
 	})
 
