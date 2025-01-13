@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alimitedgroup/PoC/common"
 	"github.com/alimitedgroup/PoC/common/messages"
-	"github.com/alimitedgroup/PoC/common/natsutil"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
@@ -24,44 +24,12 @@ type Reservation struct {
 // ReservationTimeout specifies the time after which a reservation will be considered "cancelled"
 const ReservationTimeout = 30 * time.Minute
 
-var reservations = struct {
+type reservationState struct {
 	sync.Mutex
 	s []Reservation
-}{sync.Mutex{}, make([]Reservation, 0)}
-
-func InitReservations(ctx context.Context, js jetstream.JetStream) error {
-	reservations.Lock()
-	defer reservations.Unlock()
-
-	_, err := js.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     "reservations",
-		Subjects: []string{"reservations.>"},
-		Storage:  jetstream.FileStorage,
-		MaxAge:   ReservationTimeout,
-	})
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to create stream", "error", err, "stream", "reservations")
-		return fmt.Errorf("failed to create stream: %w", err)
-	}
-
-	err = natsutil.ConsumeAll(
-		ctx,
-		js,
-		"reservations",
-		jetstream.OrderedConsumerConfig{FilterSubjects: []string{fmt.Sprintf("reservations.%s", warehouseId)}},
-		func(msg jetstream.Msg) { ReservationHandler(ctx, msg); _ = msg.Ack() },
-	)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to consume stock updates", "error", err, "stream", "stock_updates")
-		return fmt.Errorf("failed to consume stock updates: %w", err)
-	}
-
-	go removeReservationsLoop(ctx)
-	slog.InfoContext(ctx, "Stock updates handled", "stock", stock.s)
-	return nil
 }
 
-func ReservationHandler(ctx context.Context, req jetstream.Msg) {
+func ReservationHandler(ctx context.Context, s *common.Service[warehouseState], req jetstream.Msg) error {
 	var msg messages.Reservation
 	err := json.Unmarshal(req.Data(), &msg)
 	if err != nil {
@@ -72,7 +40,7 @@ func ReservationHandler(ctx context.Context, req jetstream.Msg) {
 			"subject", req.Subject(),
 			"message", req.Headers()["Nats-Msg-Id"][0],
 		)
-		return
+		return nil
 	}
 
 	meta, err := req.Metadata()
@@ -83,8 +51,10 @@ func ReservationHandler(ctx context.Context, req jetstream.Msg) {
 			"subject", req.Subject(),
 			"message", req.Headers()["Nats-Msg-Id"][0],
 		)
-		return
+		return nil
 	}
+
+	reservations := &s.State().reservation
 
 	// reservations MUST be locked
 	reservations.s = append(reservations.s, Reservation{
@@ -92,9 +62,11 @@ func ReservationHandler(ctx context.Context, req jetstream.Msg) {
 		seq:         meta.Sequence.Stream,
 		ts:          meta.Timestamp,
 	})
+
+	return nil
 }
 
-func removeReservationsLoop(ctx context.Context) {
+func removeReservationsLoop(ctx context.Context, reservations *reservationState) {
 	t := time.NewTicker(5 * time.Second)
 
 	for {
@@ -113,7 +85,7 @@ func removeReservationsLoop(ctx context.Context) {
 	}
 }
 
-func PublishReservation(ctx context.Context, js jetstream.JetStream, msg messages.Reservation) error {
+func PublishReservation(ctx context.Context, reservations *reservationState, js jetstream.JetStream, msg messages.Reservation) error {
 	reservations.Lock()
 	defer reservations.Unlock()
 

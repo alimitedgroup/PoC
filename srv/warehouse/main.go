@@ -6,17 +6,21 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 
 	"github.com/alimitedgroup/PoC/common"
 	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 )
 
+type warehouseState struct {
+	stock       stockState
+	reservation reservationState
+}
+
 var meter = otel.Meter("github.com/alimitedgroup/PoC/srv/warehouse")
 var warehouseId = os.Getenv("WAREHOUSE_ID")
-var js jetstream.JetStream
 
 func setupObservability(ctx context.Context, otlpUrl string) func(context.Context) {
 	otelshutdown := common.SetupOTelSDK(ctx, otlpUrl)
@@ -47,18 +51,24 @@ func main() {
 	}
 	defer nc.Close()
 
-	js, err = jetstream.New(nc)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to init JetStream", "error", err)
-		return
-	}
+	srv := common.NewService(ctx, nc, warehouseState{
+		stock:       stockState{sync.Mutex{}, make(map[uint64]int), make(map[uint64]int)},
+		reservation: reservationState{sync.Mutex{}, make([]Reservation, 0)},
+	})
 
-	err = setupWarehouse(ctx, nc, js)
-	if err != nil {
-		return
-	}
+	srv.RegisterJsHandlerExisting("stock_updates", StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
+	slog.InfoContext(ctx, "Stock updates handled", "stock", srv.State().stock.r)
 
-	// Wait for ctrl-c, and gracefully stop service
+	srv.RegisterJsHandlerExisting("reservations", ReservationHandler, common.WithSubjectFilter("reservations.>"))
+	slog.InfoContext(ctx, "Reservations handled", "reservation", srv.State().reservation.s)
+	go removeReservationsLoop(ctx, &srv.State().reservation)
+
+	srv.RegisterHandler(fmt.Sprintf("warehouse.ping.%s", warehouseId), PingHandler)
+	srv.RegisterHandler(fmt.Sprintf("warehouse.add_stock.%s", warehouseId), AddStockHandler)
+	srv.RegisterHandler(fmt.Sprintf("warehouse.reserve.%s", warehouseId), ReserveHandler)
+
+	slog.InfoContext(ctx, "Service setup successful", "service", "warehouse", "warehouseId", warehouseId)
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
@@ -66,59 +76,4 @@ func main() {
 	cancel()
 
 	slog.InfoContext(ctx, "Shutting down")
-}
-
-func setupWarehouse(ctx context.Context, nc *nats.Conn, js jetstream.JetStream) error {
-	// TODO: cleanly unsubscribe on ctrl-c
-
-	// Initialization
-	err := InitStock(ctx, js)
-	if err != nil {
-		return err
-	}
-	err = InitReservations(ctx, js)
-	if err != nil {
-		return err
-	}
-
-	// Endpoint: `stock_updates.<warehouseId>`
-	_, err = nc.Subscribe(fmt.Sprintf("stock_updates.%s", warehouseId), func(req *nats.Msg) {
-		StockUpdateHandler(ctx, req)
-	})
-	if err != nil {
-		slog.ErrorContext(
-			ctx, "Failed to subscribe to NATS",
-			"error", err,
-			"subject", fmt.Sprintf("stock_updates.%s", warehouseId),
-		)
-		return err
-	}
-
-	// Endpoint: `warehouse.reserve.<warehouseId>`
-	_, err = nc.Subscribe(fmt.Sprintf("warehouse.reserve.%s", warehouseId), func(req *nats.Msg) {
-		ReserveHandler(ctx, req)
-	})
-	if err != nil {
-		slog.ErrorContext(
-			ctx, "Failed to subscribe to NATS",
-			"error", err,
-			"subject", fmt.Sprintf("warehouse.reserve.%s", warehouseId),
-		)
-		return err
-	}
-
-	// Endpoint: `warehouse.ping`
-	_, err = nc.Subscribe(fmt.Sprintf("warehouse.ping.%s", warehouseId), PingHandler)
-	if err != nil {
-		slog.ErrorContext(
-			ctx, "Failed to subscribe to NATS",
-			"error", err,
-			"subject", fmt.Sprintf("warehouse.ping.%s", warehouseId),
-		)
-		return err
-	}
-
-	slog.InfoContext(ctx, "Service setup successful", "service", "warehouse", "warehouseId", warehouseId)
-
-	return nil
 }

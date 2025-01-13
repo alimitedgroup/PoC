@@ -5,12 +5,19 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 
 	"github.com/alimitedgroup/PoC/common"
 	"github.com/nats-io/nats.go"
 )
 
-type ordersState struct {
+type stockState struct {
+	sync.Mutex
+	m map[uint64]int
+}
+
+type orderState struct {
+	stock stockState
 }
 
 func setupObservability(ctx context.Context, otlpUrl string) func(context.Context) {
@@ -33,8 +40,12 @@ func main() {
 		return
 	}
 
-	svc := common.NewService(ctx, nc, ordersState{})
-	_ = svc
+	svc := common.NewService(ctx, nc, orderState{
+		stock: stockState{sync.Mutex{}, make(map[uint64]int)},
+	})
+
+	svc.RegisterJsHandlerExisting("stock_updates", StockUpdateHandler)
+	svc.RegisterHandler("order.ping", PingHandler)
 
 	// Wait for ctrl-c, and gracefully stop service
 	c := make(chan os.Signal, 1)
