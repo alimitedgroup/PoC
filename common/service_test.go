@@ -67,6 +67,31 @@ func TestService_RegisterHandler(t *testing.T) {
 	require.Equal(t, []string{"hello", "world"}, service.State().s)
 }
 
+func TestService_RegisterJsHandler(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	t.Cleanup(cancel)
+
+	nc := NewInProcessNATSServer(t)
+	t.Cleanup(nc.Close)
+
+	type state struct{ s []string }
+	service := NewService(ctx, nc, state{})
+	_, err := service.JetStream().CreateStream(ctx, jetstream.StreamConfig{Name: "stream"})
+	require.NoError(t, err)
+
+	service.RegisterJsHandler("stream", func(ctx context.Context, s *Service[state], msg jetstream.Msg) error {
+		s.State().s = append(s.State().s, string(msg.Data()))
+		return nil
+	})
+
+	require.NoError(t, nc.Publish("stream", []byte("hello")))
+	require.NoError(t, nc.Publish("stream", []byte("world")))
+
+	time.Sleep(500 * time.Millisecond)
+
+	require.Equal(t, []string{"hello", "world"}, service.State().s)
+}
+
 func TestService_Cleanup(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
