@@ -10,7 +10,6 @@ import (
 
 	"github.com/alimitedgroup/PoC/common"
 	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -79,28 +78,20 @@ func main() {
 }
 
 func InitWarehouse(ctx context.Context, srv *common.Service[warehouseState]) error {
-	_, err := srv.JetStream().CreateStream(ctx, jetstream.StreamConfig{
-		Name:     "stock_updates",
-		Subjects: []string{"stock_updates.>"},
-		Storage:  jetstream.FileStorage,
-	})
+	err := common.CreateStream(ctx, srv.JetStream(), common.StockUpdatesStreamConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create stock_updates stream: %w", err)
 	}
 
-	srv.RegisterJsHandlerExisting("stock_updates", StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
+	srv.RegisterJsHandlerExisting(common.StockUpdatesStreamConfig.Name, StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
 	slog.InfoContext(ctx, "Stock updates handled", "stock", srv.State().stock.r)
 
-	_, err = srv.JetStream().CreateStream(ctx, jetstream.StreamConfig{
-		Name:     "reservations",
-		Subjects: []string{"reservations.>"},
-		Storage:  jetstream.FileStorage,
-	})
+	err = common.CreateStream(ctx, srv.JetStream(), common.ReservationStreamConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create reservations stream: %w", err)
 	}
 
-	srv.RegisterJsHandlerExisting("reservations", ReservationHandler, common.WithSubjectFilter("reservations.>"))
+	srv.RegisterJsHandlerExisting(common.ReservationStreamConfig.Name, ReservationHandler, common.WithSubjectFilter("reservations.>"))
 	slog.InfoContext(ctx, "Reservations handled", "reservation", srv.State().reservation.s)
 	go removeReservationsLoop(ctx, &srv.State().reservation)
 

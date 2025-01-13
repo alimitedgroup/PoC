@@ -44,7 +44,12 @@ func main() {
 		stock: stockState{sync.Mutex{}, make(map[uint64]int)},
 	})
 
-	svc.RegisterJsHandler("stock_updates", StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
+	if common.CreateStream(ctx, svc.JetStream(), common.StockUpdatesStreamConfig) != nil {
+		slog.ErrorContext(ctx, "Failed to create stream", "stream", common.StockUpdatesStreamConfig.Name)
+		return
+	}
+
+	svc.RegisterJsHandler(common.StockUpdatesStreamConfig.Name, StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
 	svc.RegisterHandler("order.ping", PingHandler)
 
 	// Wait for ctrl-c, and gracefully stop service
