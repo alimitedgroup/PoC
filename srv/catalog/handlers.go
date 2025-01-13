@@ -94,32 +94,27 @@ func GetHandler(ctx context.Context, s *common.Service[catalogState], req *nats.
 
 // ListHandler is the handler for `catalog.list`
 func ListHandler(ctx context.Context, s *common.Service[catalogState], req *nats.Msg) {
-	l, err := s.State().kv.Keys(ctx, jetstream.IgnoreDeletes())
+	w, err := s.State().kv.WatchAll(ctx, jetstream.IgnoreDeletes())
 	if err != nil {
-		if err != jetstream.ErrNoKeysFound {
-			slog.ErrorContext(ctx, "Error listing keys", "error", err)
-			natsutil.Respond(req, natsutil.KvError)
-			return
-		} else {
-			l = []string{}
-		}
+		slog.ErrorContext(ctx, "Error watching keys", "error", err)
+		natsutil.Respond(req, natsutil.KvError)
+		return
 	}
 
-	res := make([]messages.CatalogItem, len(l))
+	res := make([]messages.CatalogItem, 0)
+	updates := w.Updates()
 
-	for i, k := range l {
-		v, err := s.State().kv.Get(ctx, k)
-		if err != nil {
-			slog.ErrorContext(ctx, "Error getting catalog item", "error", err)
-			natsutil.Respond(req, natsutil.KvError)
-			return
-		}
-		err = json.Unmarshal(v.Value(), &res[i])
+	for v := range updates {
+		var item messages.CatalogItem
+		val := v.Value()
+		slog.Info("Got catalog item", "value", string(val))
+		err = json.Unmarshal(val, &item)
 		if err != nil {
 			slog.ErrorContext(ctx, "Error unmarshaling catalog item", "error", err)
 			natsutil.Respond(req, natsutil.MarshalError)
 			return
 		}
+		slog.Info("Got catalog item", "item", item)
 	}
 
 	resBody, err := json.Marshal(res)
