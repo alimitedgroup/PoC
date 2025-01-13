@@ -44,7 +44,7 @@ func main() {
 		stock: stockState{sync.Mutex{}, make(map[uint64]int)},
 	})
 
-	svc.RegisterJsHandlerExisting("stock_updates", StockUpdateHandler)
+	svc.RegisterJsHandler("stock_updates", StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
 	svc.RegisterHandler("order.ping", PingHandler)
 
 	// Wait for ctrl-c, and gracefully stop service

@@ -65,7 +65,7 @@ func ReserveHandler(ctx context.Context, s *common.Service[warehouseState], req 
 
 func AddStockHandler(ctx context.Context, s *common.Service[warehouseState], req *nats.Msg) {
 	var msg messages.StockUpdate
-	err := json.Unmarshal(req.Data, &req)
+	err := json.Unmarshal(req.Data, &msg)
 	if err != nil {
 		slog.ErrorContext(
 			ctx,

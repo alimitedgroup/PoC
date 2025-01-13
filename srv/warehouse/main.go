@@ -10,6 +10,7 @@ import (
 
 	"github.com/alimitedgroup/PoC/common"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -56,12 +57,11 @@ func main() {
 		reservation: reservationState{sync.Mutex{}, make([]Reservation, 0)},
 	})
 
-	srv.RegisterJsHandlerExisting("stock_updates", StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
-	slog.InfoContext(ctx, "Stock updates handled", "stock", srv.State().stock.r)
-
-	srv.RegisterJsHandlerExisting("reservations", ReservationHandler, common.WithSubjectFilter("reservations.>"))
-	slog.InfoContext(ctx, "Reservations handled", "reservation", srv.State().reservation.s)
-	go removeReservationsLoop(ctx, &srv.State().reservation)
+	err = InitWarehouse(ctx, srv)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to initialize the service", "error", err)
+		return
+	}
 
 	srv.RegisterHandler(fmt.Sprintf("warehouse.ping.%s", warehouseId), PingHandler)
 	srv.RegisterHandler(fmt.Sprintf("warehouse.add_stock.%s", warehouseId), AddStockHandler)
@@ -76,4 +76,33 @@ func main() {
 	cancel()
 
 	slog.InfoContext(ctx, "Shutting down")
+}
+
+func InitWarehouse(ctx context.Context, srv *common.Service[warehouseState]) error {
+	_, err := srv.JetStream().CreateStream(ctx, jetstream.StreamConfig{
+		Name:     "stock_updates",
+		Subjects: []string{"stock_updates.>"},
+		Storage:  jetstream.FileStorage,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create stock_updates stream: %w", err)
+	}
+
+	srv.RegisterJsHandlerExisting("stock_updates", StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
+	slog.InfoContext(ctx, "Stock updates handled", "stock", srv.State().stock.r)
+
+	_, err = srv.JetStream().CreateStream(ctx, jetstream.StreamConfig{
+		Name:     "reservations",
+		Subjects: []string{"reservations.>"},
+		Storage:  jetstream.FileStorage,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create reservations stream: %w", err)
+	}
+
+	srv.RegisterJsHandlerExisting("reservations", ReservationHandler, common.WithSubjectFilter("reservations.>"))
+	slog.InfoContext(ctx, "Reservations handled", "reservation", srv.State().reservation.s)
+	go removeReservationsLoop(ctx, &srv.State().reservation)
+
+	return nil
 }
