@@ -12,11 +12,12 @@ import (
 //
 // In particular, it implements cancellation with a context, automatic tracing of requests and responses
 type Service[S any] struct {
-	state         S
-	ctx           context.Context
-	nc            *nats.Conn
-	js            jetstream.JetStream
-	subscriptions []*nats.Subscription
+	state           S
+	ctx             context.Context
+	nc              *nats.Conn
+	js              jetstream.JetStream
+	subscriptions   []*nats.Subscription
+	subscriptionsJs []jetstream.ConsumeContext
 }
 
 // Handler represents a handler for a particular NATS Core subject
@@ -44,8 +45,6 @@ func NewService[S any](ctx context.Context, nc *nats.Conn, state S) *Service[S] 
 				slog.ErrorContext(ctx, "Failed to drain subscription", "error", err, "subject", sub.Subject)
 			}
 		}
-
-		nc.Close()
 	}(ctx)
 
 	return s
@@ -80,6 +79,40 @@ func (s *Service[S]) RegisterHandler(subject string, handler Handler[S]) {
 	}
 
 	s.subscriptions = append(s.subscriptions, subscription)
+}
+
+// RegisterJsHandler registers a handler for the given JetStream stream
+//
+// Note that, if your handler returns an error, it is your responsibility to either Nak or Term the message.
+// If, instead, no error is returned, then Ack gets automatically called.
+func (s *Service[S]) RegisterJsHandler(subject string, handler JsHandler[S], opts ...JsHandlerOpt) {
+	cfg := jetstream.ConsumerConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	consumer, err := s.JetStream().CreateConsumer(s.ctx, subject, cfg)
+	if err != nil {
+		slog.ErrorContext(s.ctx, "Failed to create consumer", "subject", subject, "error", err, "consumerConfig", cfg)
+		panic(err)
+	}
+
+	cc, err := consumer.Consume(func(msg jetstream.Msg) {
+		err := handler(s.ctx, s, msg)
+		if err != nil {
+			slog.ErrorContext(s.ctx, "Failed to handle message", "subject", subject, "error", err, "msg", msg)
+		} else {
+			err = msg.Ack()
+			if err != nil {
+				slog.ErrorContext(s.ctx, "Failed to ack message", "subject", subject, "error", err, "msg", msg)
+			}
+		}
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	s.subscriptionsJs = append(s.subscriptionsJs, cc)
 }
 
 // RegisterJsHandlerExisting registers a handler for the given JetStream stream.
