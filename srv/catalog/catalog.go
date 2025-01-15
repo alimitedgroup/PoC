@@ -9,12 +9,14 @@ import (
 	"github.com/alimitedgroup/PoC/common"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 )
 
 type catalogState struct {
 	db *pgxpool.Pool
+	kv jetstream.KeyValue
 }
 
 var meter = otel.Meter("github.com/alimitedgroup/PoC/srv/catalog")
@@ -58,6 +60,16 @@ func main() {
 	}
 
 	svc := common.NewService(ctx, nc, catalogState{db: pool})
+
+	kv, err := svc.JetStream().CreateOrUpdateKeyValue(ctx, jetstream.KeyValueConfig{
+		Bucket:  "catalog",
+		Storage: jetstream.FileStorage,
+	})
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to create key-value store", "error", err)
+		return
+	}
+	svc.State().kv = kv
 
 	svc.RegisterHandler("catalog.ping", PingHandler)
 	svc.RegisterHandler("catalog.create", CreateHandler)

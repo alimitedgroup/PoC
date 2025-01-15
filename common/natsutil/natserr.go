@@ -2,6 +2,7 @@ package natsutil
 
 import (
 	"fmt"
+
 	"github.com/nats-io/nats.go"
 )
 
@@ -16,6 +17,7 @@ var (
 	MarshalError      = Description{"internal_error", "Failed to serialize response body"}
 	SendResponseError = Description{"internal_error", "Failed to send response data"}
 	QueryError        = Description{"internal_error", "Failed to query database"}
+	KvError           = Description{"internal_error", "Failed to query KV"}
 )
 
 func Respond(request *nats.Msg, err Description) {

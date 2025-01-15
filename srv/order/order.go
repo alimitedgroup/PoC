@@ -5,12 +5,19 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 
 	"github.com/alimitedgroup/PoC/common"
 	"github.com/nats-io/nats.go"
 )
 
-type ordersState struct {
+type stockState struct {
+	sync.Mutex
+	m map[string]int
+}
+
+type orderState struct {
+	stock stockState
 }
 
 func setupObservability(ctx context.Context, otlpUrl string) func(context.Context) {
@@ -33,8 +40,17 @@ func main() {
 		return
 	}
 
-	svc := common.NewService(ctx, nc, ordersState{})
-	_ = svc
+	svc := common.NewService(ctx, nc, orderState{
+		stock: stockState{sync.Mutex{}, make(map[string]int)},
+	})
+
+	if common.CreateStream(ctx, svc.JetStream(), common.StockUpdatesStreamConfig) != nil {
+		slog.ErrorContext(ctx, "Failed to create stream", "stream", common.StockUpdatesStreamConfig.Name)
+		return
+	}
+
+	svc.RegisterJsHandler(common.StockUpdatesStreamConfig.Name, StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
+	svc.RegisterHandler("order.ping", PingHandler)
 
 	// Wait for ctrl-c, and gracefully stop service
 	c := make(chan os.Signal, 1)

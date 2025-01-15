@@ -32,6 +32,10 @@ services:
       - DB_URL=postgres://catalog:catalog@catalog-postgres:5432/catalog
       - NATS_URL=nats://nats:4222
       - OTLP_URL=collector:4317
+    depends_on:
+      - catalog-postgres
+      - nats
+      - collector
   catalog-postgres:
     image: postgres:alpine
     ports:

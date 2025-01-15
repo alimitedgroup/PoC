@@ -3,9 +3,10 @@ package common
 import (
 	"context"
 	"fmt"
+	"log/slog"
+
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	"log/slog"
 )
 
 // Service collects and unifies various functionality that would otherwise be repeated among all services
@@ -134,6 +135,17 @@ func (s *Service[S]) RegisterJsHandlerExisting(stream string, handler JsHandler[
 	// Consume all messages, and stop when they are finished or an error occurs
 	var cc jetstream.ConsumeContext
 	var msgErr error
+
+	// fetch consumer info
+	info, err := consumer.Info(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get consumer info: %w", err)
+	}
+	// if num pending is zero the stream have just been created and there are no messages to consume
+	if info.NumPending == 0 {
+		return nil
+	}
+
 	cc, err = consumer.Consume(func(msg jetstream.Msg) {
 		msgErr = handler(s.ctx, s, msg)
 		if msgErr != nil {

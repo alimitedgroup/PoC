@@ -3,20 +3,19 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"log/slog"
 
 	"github.com/alimitedgroup/PoC/common"
+	"github.com/google/uuid"
 
 	"github.com/alimitedgroup/PoC/common/messages"
 	"github.com/alimitedgroup/PoC/common/natsutil"
-	"github.com/jackc/pgx/v5"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 // PingHandler is the handler for `catalog.ping`
-func PingHandler(_ context.Context, _ *common.Service[catalogState], req *nats.Msg) {
+func PingHandler(_ context.Context, s *common.Service[catalogState], req *nats.Msg) {
 	_ = req.Respond([]byte("pong"))
 }
 
@@ -30,37 +29,27 @@ func CreateHandler(ctx context.Context, s *common.Service[catalogState], req *na
 		return
 	}
 
-	var id int
-	err = s.State().db.QueryRow(ctx, "INSERT INTO catalog(name) VALUES ($1) RETURNING id", msg.Name).Scan(&id)
+	id := uuid.New().String()
+	body, err := json.Marshal(messages.CatalogItem{
+		Id:   id,
+		Name: msg.Name,
+	})
 	if err != nil {
-		slog.ErrorContext(ctx, "Error inserting catalog item", "error", err)
-		natsutil.Respond(req, natsutil.QueryError)
+		slog.ErrorContext(ctx, "Error marshaling catalog item", "error", err)
+		natsutil.Respond(req, natsutil.MarshalError)
 		return
 	}
 
-	err = req.Respond([]byte(fmt.Sprintf("%d", id)))
+	_, err = s.State().kv.Put(ctx, id, body)
+	if err != nil {
+		slog.ErrorContext(ctx, "Error storing catalog item in KV", "error", err)
+		natsutil.Respond(req, natsutil.KvError)
+		return
+	}
+
+	err = req.Respond([]byte(id))
 	if err != nil {
 		slog.ErrorContext(ctx, "Error sending response to client", "error", err)
-	}
-
-	stockUpdateMsg := messages.StockUpdate{{
-		GoodId: uint64(id),
-		Amount: 0,
-	}}
-
-	body, err := json.Marshal(stockUpdateMsg)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to marshal value as JSON", "error", err)
-	}
-
-	// TODO: This isn't atomic with write to the database,
-	// maybe use Transactional Messaging (listen to the WAL of the database and send the message after the transaction is committed)
-	_, err = s.JetStream().PublishMsg(ctx, &nats.Msg{
-		Subject: fmt.Sprintf("stock_updates.*"),
-		Data:    body,
-	})
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to publish message", "error", err)
 	}
 }
 
@@ -74,21 +63,18 @@ func GetHandler(ctx context.Context, s *common.Service[catalogState], req *nats.
 		return
 	}
 
-	rows, err := s.State().db.Query(ctx, "SELECT id, name FROM catalog WHERE id = $1", msg.Id)
-	defer rows.Close()
+	v, err := s.State().kv.Get(ctx, msg.Id)
 	if err != nil {
-		slog.ErrorContext(ctx, "Error querying catalog table", "error", err)
-		natsutil.Respond(req, natsutil.QueryError)
+		slog.ErrorContext(ctx, "Error getting catalog item", "error", err)
+		natsutil.Respond(req, natsutil.KvError)
 		return
 	}
 
-	item, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[messages.CatalogItem])
-	if err != nil && errors.Is(err, pgx.ErrNoRows) {
-		natsutil.Respond(req, natsutil.CatalogIdNotFound)
-		return
-	} else if err != nil {
-		slog.ErrorContext(ctx, "Error collecting catalog item", "error", err)
-		natsutil.Respond(req, natsutil.QueryError)
+	var item messages.CatalogItem
+	err = json.Unmarshal(v.Value(), &item)
+	if err != nil {
+		slog.ErrorContext(ctx, "Error unmarshaling catalog item", "error", err)
+		natsutil.Respond(req, natsutil.MarshalError)
 		return
 	}
 
@@ -108,19 +94,27 @@ func GetHandler(ctx context.Context, s *common.Service[catalogState], req *nats.
 
 // ListHandler is the handler for `catalog.list`
 func ListHandler(ctx context.Context, s *common.Service[catalogState], req *nats.Msg) {
-	rows, err := s.State().db.Query(ctx, "SELECT id, name FROM catalog")
-	defer rows.Close()
+	w, err := s.State().kv.WatchAll(ctx, jetstream.IgnoreDeletes())
 	if err != nil {
-		slog.ErrorContext(ctx, "Error querying catalog table", "error", err)
-		natsutil.Respond(req, natsutil.QueryError)
+		slog.ErrorContext(ctx, "Error watching keys", "error", err)
+		natsutil.Respond(req, natsutil.KvError)
 		return
 	}
 
-	res, err := pgx.CollectRows(rows, pgx.RowToStructByName[messages.CatalogItem])
-	if err != nil {
-		slog.ErrorContext(ctx, "Error collecting catalog items", "error", err)
-		natsutil.Respond(req, natsutil.QueryError)
-		return
+	res := make([]messages.CatalogItem, 0)
+	var item messages.CatalogItem
+
+	for v := range w.Updates() {
+		if v == nil {
+			break
+		}
+		err = json.Unmarshal(v.Value(), &item)
+		if err != nil {
+			slog.ErrorContext(ctx, "Error unmarshaling catalog item", "error", err)
+			natsutil.Respond(req, natsutil.MarshalError)
+			return
+		}
+		res = append(res, item)
 	}
 
 	resBody, err := json.Marshal(res)
@@ -146,10 +140,17 @@ func UpdateHandler(ctx context.Context, s *common.Service[catalogState], req *na
 		return
 	}
 
-	_, err = s.State().db.Exec(ctx, "UPDATE catalog SET name = $1 WHERE id = $2", msg.Name, msg.Id)
+	body, err := json.Marshal(msg)
 	if err != nil {
-		slog.ErrorContext(ctx, "Error updating catalog item", "error", err)
-		natsutil.Respond(req, natsutil.QueryError)
+		slog.ErrorContext(ctx, "Error marshaling catalog item", "error", err)
+		natsutil.Respond(req, natsutil.MarshalError)
+		return
+	}
+
+	_, err = s.State().kv.Put(ctx, msg.Id, body)
+	if err != nil {
+		slog.ErrorContext(ctx, "Error storing catalog item in KV", "error", err)
+		natsutil.Respond(req, natsutil.KvError)
 		return
 	}
 
@@ -169,10 +170,10 @@ func DeleteHandler(ctx context.Context, s *common.Service[catalogState], req *na
 		return
 	}
 
-	_, err = s.State().db.Exec(ctx, "DELETE FROM catalog WHERE id = $1", msg.Id)
+	err = s.State().kv.Delete(ctx, msg.Id)
 	if err != nil {
-		slog.ErrorContext(ctx, "Error updating catalog item", "error", err)
-		natsutil.Respond(req, natsutil.QueryError)
+		slog.ErrorContext(ctx, "Error deleting catalog item", "error", err)
+		natsutil.Respond(req, natsutil.KvError)
 		return
 	}
 

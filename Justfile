@@ -13,13 +13,13 @@ reset:
 doc:
     go run golang.org/x/pkgsite/cmd/pkgsite@latest -dev
 
-catalog $OTLP_URL="localhost:4317" $DB_URL="postgres://catalog:catalog@localhost:5432/catalog": up
+catalog $OTLP_URL="localhost:4317" $DB_URL="postgres://catalog:catalog@catalog-postgres:5432/catalog" $NATS_URL="nats://nats:4222": up
     go run github.com/alimitedgroup/PoC/srv/catalog
 
-orders $OTLP_URL="localhost:4317" $DB_URL="postgres://orders:orders@localhost:5432/orders": up
-    go run github.com/alimitedgroup/PoC/srv/orders
+order $OTLP_URL="localhost:4317" $NATS_URL="nats://nats:4222": up
+    go run github.com/alimitedgroup/PoC/srv/order
 
-warehouse $OTLP_URL="localhost:4317" $DB_URL="postgres://warehouse:warehouse@localhost:5432/warehouse" $WAREHOUSE_ID="42": up
+warehouse $OTLP_URL="localhost:4317" $NATS_URL="nats://nats:4222" $WAREHOUSE_ID="42": up
     go run github.com/alimitedgroup/PoC/srv/warehouse
 
 api $OTLP_URL="localhost:4317": up

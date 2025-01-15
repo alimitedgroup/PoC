@@ -5,23 +5,25 @@ import (
 	"encoding/json"
 	"log/slog"
 
+	"github.com/alimitedgroup/PoC/common"
 	"github.com/alimitedgroup/PoC/common/messages"
 	"github.com/nats-io/nats.go"
 )
 
 // PingHandler is the handler for `warehouse.ping`
-func PingHandler(msg *nats.Msg) {
-	_ = msg.Respond([]byte("pong"))
+func PingHandler(ctx context.Context, s *common.Service[warehouseState], req *nats.Msg) {
+	_ = req.Respond([]byte("pong"))
 }
 
 // ReserveHandler is the handler for `warehouse.reserve`
-func ReserveHandler(ctx context.Context, req *nats.Msg) {
+func ReserveHandler(ctx context.Context, s *common.Service[warehouseState], req *nats.Msg) {
 	var msg messages.ReserveStock
 	err := json.Unmarshal(req.Data, &msg)
 	if err != nil {
 		_ = req.Respond([]byte(err.Error()))
-		return // TODO
 	}
+
+	stock := &s.State().stock
 
 	stock.Lock()
 	defer stock.Unlock()
@@ -42,7 +44,8 @@ func ReserveHandler(ctx context.Context, req *nats.Msg) {
 		// If the reservation request can be satisfied...
 		err = PublishReservation(
 			ctx,
-			js,
+			&s.State().reservation,
+			s.JetStream(),
 			messages.Reservation{
 				ID:            msg.ID,
 				ReservedStock: msg.RequestedStock,
@@ -57,9 +60,10 @@ func ReserveHandler(ctx context.Context, req *nats.Msg) {
 	} else {
 		_ = req.Respond([]byte("not enough stock"))
 	}
+
 }
 
-func StockUpdateHandler(ctx context.Context, req *nats.Msg) {
+func AddStockHandler(ctx context.Context, s *common.Service[warehouseState], req *nats.Msg) {
 	var msg messages.StockUpdate
 	err := json.Unmarshal(req.Data, &msg)
 	if err != nil {
@@ -70,21 +74,22 @@ func StockUpdateHandler(ctx context.Context, req *nats.Msg) {
 			"subject", req.Subject,
 			"message", req.Header["Nats-Msg-Id"][0],
 		)
-		return
 	}
+
+	stock := &s.State().stock
 
 	stock.Lock()
 	defer stock.Unlock()
 
-	// stock MUST be locked
+	// msg contains only increment in stock quantity, transform to absolute values using the stock state
 	for _, row := range msg {
-		stock.s[row.GoodId] = row.Amount
+		row.Amount += stock.s[row.GoodId]
+	}
 
-		// Reset previous reservations
-		oldR, exist := stock.r[row.GoodId]
-		if !exist {
-			oldR = 0
-		}
-		stock.r[row.GoodId] = oldR
+	err = SendStockUpdate(ctx, s.JetStream(), &msg)
+
+	for _, row := range msg {
+		// stock MUST be locked
+		stock.s[row.GoodId] = row.Amount
 	}
 }

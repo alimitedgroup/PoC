@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/alimitedgroup/PoC/common"
 	"github.com/alimitedgroup/PoC/common/messages"
-	"github.com/alimitedgroup/PoC/common/natsutil"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -19,43 +19,13 @@ import (
 //
 // Please note that this singleton should be locked before being used by
 // calling its `Lock()` method.
-var stock = struct {
+type stockState struct {
 	sync.Mutex
-	s map[uint64]int
-	r map[uint64]int
-}{sync.Mutex{}, make(map[uint64]int), make(map[uint64]int)}
-
-func InitStock(ctx context.Context, js jetstream.JetStream) error {
-	stock.Lock()
-	defer stock.Unlock()
-
-	_, err := js.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     "stock_updates",
-		Subjects: []string{"stock_updates.>"},
-		Storage:  jetstream.FileStorage,
-	})
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to create stream", "error", err, "stream", "stock_updates")
-		return fmt.Errorf("failed to create stream: %w", err)
-	}
-
-	err = natsutil.ConsumeAll(
-		ctx,
-		js,
-		"stock_updates",
-		jetstream.OrderedConsumerConfig{FilterSubjects: []string{fmt.Sprintf("stock_updates.%s", warehouseId)}},
-		func(msg jetstream.Msg) { InitStockUpdateHandler(ctx, msg); _ = msg.Ack() },
-	)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to consume stock updates", "error", err, "stream", "stock_updates")
-		return fmt.Errorf("failed to consume stock updates: %w", err)
-	}
-
-	slog.InfoContext(ctx, "Stock updates handled", "stock", stock.s)
-	return nil
+	s map[string]int
+	r map[string]int
 }
 
-func InitStockUpdateHandler(ctx context.Context, req jetstream.Msg) {
+func StockUpdateHandler(ctx context.Context, s *common.Service[warehouseState], req jetstream.Msg) error {
 	var msg messages.StockUpdate
 	err := json.Unmarshal(req.Data(), &msg)
 	if err != nil {
@@ -66,35 +36,38 @@ func InitStockUpdateHandler(ctx context.Context, req jetstream.Msg) {
 			"subject", req.Subject(),
 			"message", req.Headers()["Nats-Msg-Id"][0],
 		)
-		return
+		return nil
 	}
+
+	stock := &s.State().stock
+
+	// use mutex to protect stock map
+	stock.Lock()
+	defer stock.Unlock()
 
 	for _, row := range msg {
 		// stock MUST be locked
 		stock.s[row.GoodId] = row.Amount
 		stock.r[row.GoodId] = 0
 	}
+
+	return nil
 }
 
-func SendStockUpdate(ctx context.Context, js *jetstream.JetStream, msg *messages.StockUpdate) error {
+func SendStockUpdate(ctx context.Context, js jetstream.JetStream, msg *messages.StockUpdate) error {
 	body, err := json.Marshal(msg)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to marshal value as JSON", "error", err)
 		return err
 	}
 
-	_, err = (*js).PublishMsg(ctx, &nats.Msg{
+	_, err = js.PublishMsg(ctx, &nats.Msg{
 		Subject: fmt.Sprintf("stock_updates.%s", warehouseId),
 		Data:    body,
 	})
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to publish message", "error", err)
 		return err
-	}
-
-	for _, row := range *msg {
-		// stock MUST be locked
-		stock.s[row.GoodId] = row.Amount
 	}
 
 	return nil
