@@ -8,6 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/nats-io/nats-server/v2 v2.10.24
 	github.com/nats-io/nats.go v1.38.0
+	github.com/puzpuzpuz/xsync/v3 v3.4.0
 	github.com/remychantenay/slog-otel v1.3.2
 	github.com/samber/slog-multi v1.2.4
 	github.com/stretchr/testify v1.10.0

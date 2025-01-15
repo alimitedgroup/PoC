@@ -23,4 +23,4 @@ warehouse $OTLP_URL="localhost:4317" $DB_URL="postgres://warehouse:warehouse@loc
     go run github.com/alimitedgroup/PoC/srv/warehouse
 
 api $OTLP_URL="localhost:4317": up
-    go run github.com/alimitedgroup/palestra_poc/srv/api_gateway
+    go run github.com/alimitedgroup/PoC/srv/api_gateway

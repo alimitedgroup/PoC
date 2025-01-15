@@ -1,14 +1,39 @@
 package main
 
 import (
+	"context"
+	"github.com/alimitedgroup/PoC/common"
 	"github.com/gin-gonic/gin"
+	"github.com/nats-io/nats.go"
+	"github.com/puzpuzpuz/xsync/v3"
 	"log"
+	"log/slog"
+	"os"
 )
 
+type ApiGatewayState struct {
+	stock *xsync.MapOf[string, *xsync.MapOf[uint64, int]]
+}
+
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	natsUrl := os.Getenv("NATS_URL")
+	defer cancel()
+
+	nc, err := nats.Connect(natsUrl)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to connect to NATS", "error", err)
+		return
+	}
+
+	svc := common.NewService(ctx, nc, ApiGatewayState{stock: xsync.NewMapOf[string, *xsync.MapOf[uint64, int]]()})
+	svc.RegisterJsHandler("stock_updates", StockUpdateHandler)
+
 	r := gin.Default()
 	r.GET("/ping", PingHandler)
-	err := r.Run(":8080")
+	r.GET("/warehouses", WarehouseListRoute(svc))
+	r.GET("/stock/:warehouseId", StockGetRoute(svc))
+	err = r.Run(":8080")
 	if err != nil {
 		log.Fatal(err)
 	}
