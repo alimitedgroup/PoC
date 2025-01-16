@@ -1,5 +1,9 @@
 {
     "editor.formatOnSave": true,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+    "prettier.useTabs": false,
+    "prettier.tabWidth": 2,
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
