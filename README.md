@@ -4,17 +4,20 @@ The champagne of reliable distributed systems.
 
 ## Services
 
--   `catalog`: manages the list of items of this warehouse
+- `warehouse`: local service
+- `catalog`: manages the list of items
+- `order`: manage order from multiple warehouses
+- `api-gateway`: HTTP API layer to comunicate with other services
 
 # Prerequisites
 
 install:
 
--   https://github.com/casey/just
--   golang
--   docker
--   docker compose
--   natscli
+- [just](https://github.com/casey/just)
+- golang
+- docker
+- docker compose
+- natscli
 
 ## Commands
 
@@ -26,7 +29,14 @@ install:
 
 `just down`
 
-### Listen messages
+### Examples
 
-`nats subscribe warehouse_events.public_merce_stock_update_event`
-`nats subscribe warehouse_events.public_create_order_event`
+```sh
+just reset
+
+nats request catalog.create '{"name": "hat"}'
+nats request catalog.list ""
+nats request "warehouse.add_stock.41" '[{"good_id": "{{put_the_hat_good_id_here}}", "amount": 10}]'
+curl localhost:80/warehouses
+curl localhost:80/stock/41
+```
