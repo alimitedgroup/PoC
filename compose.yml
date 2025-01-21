@@ -47,6 +47,25 @@ services:
       - ./srv/catalog/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - catalog_data:/var/lib/postgresql/data
 
+  order:
+    build: { args: { SERVICE: order } }
+    environment:
+      - NATS_URL=nats://nats:4222
+      - OTLP_URL=collector:4317
+    depends_on:
+      - nats
+      - collector
+
+  warehouse:
+    build: { args: { SERVICE: warehouse } }
+    environment:
+      - WAREHOUSE_ID=41
+      - NATS_URL=nats://nats:4222
+      - OTLP_URL=collector:4317
+    depends_on:
+      - nats
+      - collector
+
   # Observability stack
   collector:
     image: otel/opentelemetry-collector-contrib

@@ -28,6 +28,11 @@ func main() {
 	}
 
 	svc := common.NewService(ctx, nc, ApiGatewayState{stock: xsync.NewMapOf[string, *xsync.MapOf[string, int]]()})
+
+	if common.CreateStream(ctx, svc.JetStream(), common.StockUpdatesStreamConfig) != nil {
+		slog.ErrorContext(ctx, "Failed to create stream", "stream", common.StockUpdatesStreamConfig.Name)
+		return
+	}
 	svc.RegisterJsHandler("stock_updates", StockUpdateHandler)
 
 	r := gin.Default()
