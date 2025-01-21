@@ -2,17 +2,18 @@ package main
 
 import (
 	"context"
+	"log"
+	"log/slog"
+	"os"
+
 	"github.com/alimitedgroup/PoC/common"
 	"github.com/gin-gonic/gin"
 	"github.com/nats-io/nats.go"
 	"github.com/puzpuzpuz/xsync/v3"
-	"log"
-	"log/slog"
-	"os"
 )
 
 type ApiGatewayState struct {
-	stock *xsync.MapOf[string, *xsync.MapOf[uint64, int]]
+	stock *xsync.MapOf[string, *xsync.MapOf[string, int]]
 }
 
 func main() {
@@ -26,7 +27,7 @@ func main() {
 		return
 	}
 
-	svc := common.NewService(ctx, nc, ApiGatewayState{stock: xsync.NewMapOf[string, *xsync.MapOf[uint64, int]]()})
+	svc := common.NewService(ctx, nc, ApiGatewayState{stock: xsync.NewMapOf[string, *xsync.MapOf[string, int]]()})
 	svc.RegisterJsHandler("stock_updates", StockUpdateHandler)
 
 	r := gin.Default()

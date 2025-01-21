@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"net/http"
+	"strings"
+
 	"github.com/alimitedgroup/PoC/common"
 	"github.com/alimitedgroup/PoC/common/messages"
 	"github.com/gin-gonic/gin"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/puzpuzpuz/xsync/v3"
-	"log/slog"
-	"net/http"
-	"strings"
 )
 
 func StockUpdateHandler(_ context.Context, s *common.Service[ApiGatewayState], msg jetstream.Msg) error {
@@ -45,9 +46,9 @@ func StockUpdateHandler(_ context.Context, s *common.Service[ApiGatewayState], m
 	}
 
 	for _, row := range req {
-		s.State().stock.Compute(warehouseId, func(oldValue *xsync.MapOf[uint64, int], loaded bool) (newValue *xsync.MapOf[uint64, int], delete bool) {
+		s.State().stock.Compute(warehouseId, func(oldValue *xsync.MapOf[string, int], loaded bool) (newValue *xsync.MapOf[string, int], delete bool) {
 			if !loaded {
-				oldValue = xsync.NewMapOf[uint64, int]()
+				oldValue = xsync.NewMapOf[string, int]()
 			}
 			newValue = oldValue
 			newValue.Store(row.GoodId, row.Amount)
@@ -66,8 +67,8 @@ func StockGetRoute(s *common.Service[ApiGatewayState]) gin.HandlerFunc {
 			return
 		}
 
-		stock2 := map[uint64]int{}
-		stock.Range(func(key uint64, value int) bool {
+		stock2 := map[string]int{}
+		stock.Range(func(key string, value int) bool {
 			stock2[key] = value
 			return true
 		})
@@ -77,7 +78,7 @@ func StockGetRoute(s *common.Service[ApiGatewayState]) gin.HandlerFunc {
 func WarehouseListRoute(s *common.Service[ApiGatewayState]) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		keys := []string{}
-		s.State().stock.Range(func(key string, _ *xsync.MapOf[uint64, int]) bool {
+		s.State().stock.Range(func(key string, _ *xsync.MapOf[string, int]) bool {
 			keys = append(keys, key)
 			return true
 		})
