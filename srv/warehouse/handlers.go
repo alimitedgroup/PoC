@@ -87,6 +87,16 @@ func AddStockHandler(ctx context.Context, s *common.Service[warehouseState], req
 	}
 
 	err = SendStockUpdate(ctx, s.JetStream(), &msg)
+	if err != nil {
+		slog.ErrorContext(
+			ctx,
+			"Error sending stock update",
+			"error", err,
+			"subject", req.Subject,
+			"message", req.Header["Nats-Msg-Id"][0],
+		)
+		return
+	}
 
 	for _, row := range msg {
 		// stock MUST be locked

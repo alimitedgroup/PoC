@@ -35,3 +35,25 @@ type ReserveStock struct {
 		Amount int    `json:"amount"`
 	} `json:"requested_stock"`
 }
+
+type CreateOrder struct {
+	Items []struct {
+		GoodId string `json:"good_id"`
+		Amount int    `json:"amount"`
+	} `json:"items"`
+}
+
+type OrderCreated struct {
+	ID    uuid.UUID          `json:"id"`
+	Items []OrderCreatedItem `json:"items"`
+}
+
+type OrderCreatedItem struct {
+	GoodId string                 `json:"good_id"`
+	Parts  []OrderCreatedItemPart `json:"parts"`
+}
+
+type OrderCreatedItemPart struct {
+	WarehouseId string `json:"warehouse_id"`
+	Amount      int    `json:"amount"`
+}

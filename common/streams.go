@@ -19,6 +19,12 @@ var StockUpdatesStreamConfig = jetstream.StreamConfig{
 	Storage:  jetstream.FileStorage,
 }
 
+var OdersStreamConfig = jetstream.StreamConfig{
+	Name:     "orders",
+	Subjects: []string{"orders.>"},
+	Storage:  jetstream.FileStorage,
+}
+
 func CreateStream(ctx context.Context, js jetstream.JetStream, cfg jetstream.StreamConfig) error {
 	_, err := js.CreateStream(ctx, cfg)
 	if err != nil {

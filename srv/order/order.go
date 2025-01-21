@@ -13,7 +13,8 @@ import (
 
 type stockState struct {
 	sync.Mutex
-	m map[string]int
+	// map of warehouse id to map of good id to amount of goods
+	m map[string]map[string]int
 }
 
 type orderState struct {
@@ -41,7 +42,7 @@ func main() {
 	}
 
 	svc := common.NewService(ctx, nc, orderState{
-		stock: stockState{sync.Mutex{}, make(map[string]int)},
+		stock: stockState{sync.Mutex{}, make(map[string]map[string]int)},
 	})
 
 	if common.CreateStream(ctx, svc.JetStream(), common.StockUpdatesStreamConfig) != nil {
@@ -51,6 +52,7 @@ func main() {
 
 	svc.RegisterJsHandler(common.StockUpdatesStreamConfig.Name, StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
 	svc.RegisterHandler("order.ping", PingHandler)
+	svc.RegisterHandler("order.create", CreateOrderHandler)
 
 	// Wait for ctrl-c, and gracefully stop service
 	c := make(chan os.Signal, 1)

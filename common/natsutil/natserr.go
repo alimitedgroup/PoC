@@ -13,6 +13,8 @@ type Description struct {
 
 var (
 	InvalidRequest    = Description{"invalid_request", "Failed to deserialize request body"}
+	NatsError         = Description{"internal_error", "Failed to publish data to NATS"}
+	InsufficientStock = Description{"insufficient_stock", "Not enough stock to fulfill order"}
 	CatalogIdNotFound = Description{"not_found", "Failed to find catalog item with given id"}
 	MarshalError      = Description{"internal_error", "Failed to serialize response body"}
 	SendResponseError = Description{"internal_error", "Failed to send response data"}
