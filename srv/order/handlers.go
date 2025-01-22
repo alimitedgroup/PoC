@@ -28,16 +28,10 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 		return
 	}
 
-	// var tmpCreate = req
-
 	var state = s.State()
 
 	state.stock.Lock()
 	defer state.stock.Unlock()
-
-	var order messages.OrderCreated
-	order.ID = uuid.New()
-	order.Items = make([]messages.OrderCreatedItem, 0)
 
 	var remainingStock = make(map[string]int)
 	var totalRemainingStock = 0
@@ -67,10 +61,10 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 			remainingStock[goodId] -= used
 			totalRemainingStock -= used
 			if used > 0 {
-				if usedStock[goodId] == nil {
-					usedStock[goodId] = make(map[string]int)
+				if usedStock[warehouseId] == nil {
+					usedStock[warehouseId] = make(map[string]int)
 				}
-				usedStock[goodId][warehouseId] = used
+				usedStock[warehouseId][goodId] = used
 			}
 		}
 	}
@@ -81,40 +75,38 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 		return
 	}
 
-	// create the order message
-	for _, item := range req.Items {
-		var parts = make([]messages.OrderCreatedItemPart, 0)
-
-		for warehouseId, amount := range usedStock[item.GoodId] {
-			parts = append(parts, messages.OrderCreatedItemPart{
-				WarehouseId: warehouseId,
-				Amount:      amount,
+	// create and send all the reservations messages
+	// TODO: use concurrency
+	for warehouseId, m := range usedStock {
+		var items = make([]messages.ReserveStockItem, 0)
+		for goodId, amount := range m {
+			items = append(items, messages.ReserveStockItem{
+				GoodId: goodId,
+				Amount: amount,
 			})
 		}
 
-		order.Items = append(order.Items, messages.OrderCreatedItem{
-			GoodId: item.GoodId,
-			Parts:  parts,
+		payload, err := json.Marshal(messages.ReserveStock{
+			ID:             uuid.New(),
+			RequestedStock: items,
 		})
-	}
+		if err != nil {
+			slog.ErrorContext(ctx, "Error marshaling response", "error", err)
+			natsutil.Respond(msg, natsutil.NatsError)
+			return
+		}
 
-	payload, err := json.Marshal(order)
-	if err != nil {
-		slog.ErrorContext(ctx, "Error marshaling response data", "error", err)
-		natsutil.Respond(msg, natsutil.MarshalError)
-		return
+		if err = s.NatsConn().PublishMsg(&nats.Msg{
+			Subject: fmt.Sprintf("warehouse.reserve.%s", warehouseId),
+			Data:    payload,
+		}); err != nil {
+			slog.ErrorContext(ctx, "Error sending the reserve message", "error", err)
+			natsutil.Respond(msg, natsutil.NatsError)
+			return
+		}
 	}
 
 	// NOTE: don't update the stock here, it should be done in the warehouse service that will send back a stock_update event
 
-	if _, err = s.JetStream().PublishMsg(ctx, &nats.Msg{
-		Subject: "orders",
-		Data:    payload,
-	}); err != nil {
-		slog.ErrorContext(ctx, "Error publishing response", "error", err)
-		natsutil.Respond(msg, natsutil.NatsError)
-		return
-	}
-
-	_ = msg.Respond([]byte(fmt.Sprintf("order created: %s", order.ID)))
+	_ = msg.Respond([]byte(fmt.Sprintf("reservations sent")))
 }

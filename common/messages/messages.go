@@ -21,19 +21,23 @@ type StockUpdate []struct {
 }
 
 type Reservation struct {
-	ID            uuid.UUID `json:"id"`
-	ReservedStock []struct {
-		GoodId string `json:"good_id"`
-		Amount int    `json:"amount"`
-	} `json:"reserved_stock"`
+	ID            uuid.UUID         `json:"id"`
+	ReservedStock []ReservationItem `json:"reserved_stock"`
+}
+
+type ReservationItem struct {
+	GoodId string `json:"good_id"`
+	Amount int    `json:"amount"`
 }
 
 type ReserveStock struct {
-	ID             uuid.UUID `json:"id"`
-	RequestedStock []struct {
-		GoodId string `json:"good_id"`
-		Amount int    `json:"amount"`
-	} `json:"requested_stock"`
+	ID             uuid.UUID          `json:"id"`
+	RequestedStock []ReserveStockItem `json:"requested_stock"`
+}
+
+type ReserveStockItem struct {
+	GoodId string `json:"good_id"`
+	Amount int    `json:"amount"`
 }
 
 type CreateOrder struct {
