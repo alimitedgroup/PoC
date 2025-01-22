@@ -113,4 +113,6 @@ func AddStockHandler(ctx context.Context, s *common.Service[warehouseState], req
 		// stock MUST be locked
 		stock.s[row.GoodId] = row.Amount
 	}
+
+	_ = req.Respond([]byte("ok"))
 }
