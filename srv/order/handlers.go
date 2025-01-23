@@ -106,6 +106,39 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 		}
 	}
 
+	var order = messages.OrderCreated{
+		ID:         uuid.New(),
+		Warehouses: make([]messages.OrderCreateWarehouse, 0),
+	}
+
+	for warehouseId, m := range usedStock {
+		var warehouseItems = make([]messages.OrderCreatedItem, 0)
+		for goodId, amount := range m {
+			warehouseItems = append(warehouseItems, messages.OrderCreatedItem{
+				GoodId: goodId,
+				Amount: amount,
+			})
+		}
+		order.Warehouses = append(order.Warehouses, messages.OrderCreateWarehouse{
+			WarehouseId: warehouseId,
+			Parts:       warehouseItems,
+		})
+	}
+
+	payload, err := json.Marshal(order)
+	if err != nil {
+		slog.ErrorContext(ctx, "Error marshaling response", "error", err)
+		natsutil.Respond(msg, natsutil.NatsError)
+		return
+	}
+
+	_, err = s.JetStream().Publish(ctx, "orders", payload)
+	if err != nil {
+		slog.ErrorContext(ctx, "Error sending the order created message", "error", err)
+		natsutil.Respond(msg, natsutil.NatsError)
+		return
+	}
+
 	// NOTE: don't update the stock here, it should be done in the warehouse service that will send back a stock_update event
 
 	_ = msg.Respond([]byte(fmt.Sprintf("reservations sent")))

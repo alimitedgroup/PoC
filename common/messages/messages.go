@@ -48,16 +48,16 @@ type CreateOrder struct {
 }
 
 type OrderCreated struct {
-	ID    uuid.UUID          `json:"id"`
-	Items []OrderCreatedItem `json:"items"`
+	ID         uuid.UUID              `json:"id"`
+	Warehouses []OrderCreateWarehouse `json:"warehouses"`
+}
+
+type OrderCreateWarehouse struct {
+	WarehouseId string             `json:"warehouse_id"`
+	Parts       []OrderCreatedItem `json:"parts"`
 }
 
 type OrderCreatedItem struct {
-	GoodId string                 `json:"good_id"`
-	Parts  []OrderCreatedItemPart `json:"parts"`
-}
-
-type OrderCreatedItemPart struct {
-	WarehouseId string `json:"warehouse_id"`
-	Amount      int    `json:"amount"`
+	GoodId string `json:"good_id"`
+	Amount int    `json:"amount"`
 }
