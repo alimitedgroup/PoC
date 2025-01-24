@@ -39,6 +39,7 @@ func main() {
 	r.GET("/ping", PingHandler)
 	r.GET("/warehouses", WarehouseListRoute(svc))
 	r.GET("/stock/:warehouseId", StockGetRoute(svc))
+	r.POST("/stock/:warehouseId", StockPostRoute(svc))
 	err = r.Run(":8080")
 	if err != nil {
 		log.Fatal(err)

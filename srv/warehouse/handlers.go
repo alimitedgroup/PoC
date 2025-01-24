@@ -11,7 +11,7 @@ import (
 )
 
 // PingHandler is the handler for `warehouse.ping`
-func PingHandler(ctx context.Context, s *common.Service[warehouseState], req *nats.Msg) {
+func PingHandler(_ context.Context, _ *common.Service[warehouseState], req *nats.Msg) {
 	_ = req.Respond([]byte("pong"))
 }
 
@@ -76,6 +76,8 @@ func AddStockHandler(ctx context.Context, s *common.Service[warehouseState], req
 		)
 	}
 
+	slog.DebugContext(ctx, "Received stock add request", "msg", msg)
+
 	stock := &s.State().stock
 
 	stock.Lock()
@@ -83,7 +85,9 @@ func AddStockHandler(ctx context.Context, s *common.Service[warehouseState], req
 
 	// msg contains only increment in stock quantity, transform to absolute values using the stock state
 	for _, row := range msg {
-		row.Amount += stock.s[row.GoodId]
+		prevAmount := stock.s[row.GoodId]
+		stock.s[row.GoodId] += row.Amount
+		row.Amount += prevAmount
 	}
 
 	err = SendStockUpdate(ctx, s.JetStream(), &msg)

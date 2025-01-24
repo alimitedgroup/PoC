@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -50,8 +51,9 @@ func StockUpdateHandler(_ context.Context, s *common.Service[ApiGatewayState], m
 			if !loaded {
 				oldValue = xsync.NewMapOf[string, int]()
 			}
+			old, _ := oldValue.LoadOrCompute(row.GoodId, func() int { return 0 })
 			newValue = oldValue
-			newValue.Store(row.GoodId, row.Amount)
+			newValue.Store(row.GoodId, row.Amount+old)
 			return
 		})
 	}
@@ -75,6 +77,26 @@ func StockGetRoute(s *common.Service[ApiGatewayState]) gin.HandlerFunc {
 		c.JSON(http.StatusOK, stock2)
 	}
 }
+
+func StockPostRoute(s *common.Service[ApiGatewayState]) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		warehouseId := c.Param("warehouseId")
+
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			return
+		}
+
+		err = s.NatsConn().Publish(
+			fmt.Sprintf("warehouse.add_stock.%s", warehouseId),
+			body,
+		)
+		if err != nil {
+			return
+		}
+	}
+}
+
 func WarehouseListRoute(s *common.Service[ApiGatewayState]) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		keys := []string{}

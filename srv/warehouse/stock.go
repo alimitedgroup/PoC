@@ -34,7 +34,7 @@ func StockUpdateHandler(ctx context.Context, s *common.Service[warehouseState], 
 			"Error unmarshalling message",
 			"error", err,
 			"subject", req.Subject(),
-			"message", req.Headers()["Nats-Msg-Id"][0],
+			"message", req.Headers()["Nats-Msg-Id"],
 		)
 		return nil
 	}
