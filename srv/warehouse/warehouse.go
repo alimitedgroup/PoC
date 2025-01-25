@@ -95,5 +95,11 @@ func InitWarehouse(ctx context.Context, srv *common.Service[warehouseState]) err
 	slog.InfoContext(ctx, "Reservations handled", "reservation", srv.State().reservation.s)
 	go removeReservationsLoop(ctx, &srv.State().reservation)
 
+	err = common.CreateStream(ctx, srv.JetStream(), common.OrdersStreamConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create orders stream: %w", err)
+	}
+	srv.RegisterJsHandler(common.OrdersStreamConfig.Name, OrdersCreateHandler, common.WithSubjectFilter("orders.>"))
+
 	return nil
 }

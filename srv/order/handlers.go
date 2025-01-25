@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/alimitedgroup/PoC/common"
 	"github.com/alimitedgroup/PoC/common/messages"
@@ -77,6 +78,7 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 
 	// create and send all the reservations messages
 	// TODO: use concurrency
+	var warehouseReservationIds = make(map[string]uuid.UUID)
 	for warehouseId, m := range usedStock {
 		var items = make([]messages.ReserveStockItem, 0)
 		for goodId, amount := range m {
@@ -86,8 +88,10 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 			})
 		}
 
+		id := uuid.New()
+		warehouseReservationIds[warehouseId] = id
 		payload, err := json.Marshal(messages.ReserveStock{
-			ID:             uuid.New(),
+			ID:             id,
 			RequestedStock: items,
 		})
 		if err != nil {
@@ -96,11 +100,18 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 			return
 		}
 
-		if err = s.NatsConn().PublishMsg(&nats.Msg{
+		r, err := s.NatsConn().RequestMsg(&nats.Msg{
 			Subject: fmt.Sprintf("warehouse.reserve.%s", warehouseId),
 			Data:    payload,
-		}); err != nil {
+		}, time.Second*3)
+		if err != nil {
 			slog.ErrorContext(ctx, "Error sending the reserve message", "error", err)
+			natsutil.Respond(msg, natsutil.NatsError)
+			return
+		}
+
+		if err = r.Ack(); err != nil {
+			slog.ErrorContext(ctx, "Error acking the response", "error", err)
 			natsutil.Respond(msg, natsutil.NatsError)
 			return
 		}
@@ -119,9 +130,11 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 				Amount: amount,
 			})
 		}
+		reservationId := warehouseReservationIds[warehouseId]
 		order.Warehouses = append(order.Warehouses, messages.OrderCreateWarehouse{
-			WarehouseId: warehouseId,
-			Parts:       warehouseItems,
+			WarehouseId:   warehouseId,
+			ReservationId: reservationId,
+			Parts:         warehouseItems,
 		})
 	}
 

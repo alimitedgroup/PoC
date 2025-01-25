@@ -15,7 +15,9 @@ type GetCatalogItem struct {
 	Id string `json:"id"`
 }
 
-type StockUpdate []struct {
+type StockUpdate []StockUpdateItem
+
+type StockUpdateItem struct {
 	GoodId string `json:"good_id"`
 	Amount int    `json:"amount"`
 }
@@ -53,8 +55,9 @@ type OrderCreated struct {
 }
 
 type OrderCreateWarehouse struct {
-	WarehouseId string             `json:"warehouse_id"`
-	Parts       []OrderCreatedItem `json:"parts"`
+	WarehouseId   string             `json:"warehouse_id"`
+	ReservationId uuid.UUID          `json:"reservation_id"`
+	Parts         []OrderCreatedItem `json:"parts"`
 }
 
 type OrderCreatedItem struct {

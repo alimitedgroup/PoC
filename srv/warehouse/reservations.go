@@ -30,6 +30,7 @@ type reservationState struct {
 }
 
 func ReservationHandler(ctx context.Context, s *common.Service[warehouseState], req jetstream.Msg) error {
+	// TODO: maybe create reservation id in this handler and not from the external caller
 	var msg messages.Reservation
 	err := json.Unmarshal(req.Data(), &msg)
 	if err != nil {
