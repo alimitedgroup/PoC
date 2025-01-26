@@ -52,6 +52,7 @@ func OrdersCreateHandler(ctx context.Context, s *common.Service[warehouseState],
 			break
 		}
 	}
+	// TODO: handle this (?)
 	if reservation == nil {
 		slog.ErrorContext(ctx, "Reservation expired", "reservation_id", currentWarehouseRequest.ReservationId)
 		return nil
@@ -59,14 +60,17 @@ func OrdersCreateHandler(ctx context.Context, s *common.Service[warehouseState],
 
 	stockUpdate := messages.StockUpdate(make([]messages.StockUpdateItem, 0, len(currentWarehouseRequest.Parts)))
 	for _, item := range reservation.ReservedStock {
+		// update stock and reservation state
 		stock.r[item.GoodId] -= item.Amount
 		stock.s[item.GoodId] -= item.Amount
+		// add the updated stock state to the stockUpdate message
 		stockUpdate = append(stockUpdate, messages.StockUpdateItem{
 			GoodId: item.GoodId,
 			Amount: stock.s[item.GoodId],
 		})
 	}
 
+	// send the stock update message to the stream
 	if err := SendStockUpdate(ctx, s.JetStream(), &stockUpdate); err != nil {
 		slog.ErrorContext(
 			ctx,

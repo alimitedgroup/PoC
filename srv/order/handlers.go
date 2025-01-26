@@ -100,6 +100,7 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 			return
 		}
 
+		// send the reservation request
 		r, err := s.NatsConn().RequestMsg(&nats.Msg{
 			Subject: fmt.Sprintf("warehouse.reserve.%s", warehouseId),
 			Data:    payload,
@@ -110,6 +111,7 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 			return
 		}
 
+		// ACK the reservation response
 		if err = r.Ack(); err != nil {
 			slog.ErrorContext(ctx, "Error acking the response", "error", err)
 			natsutil.Respond(msg, natsutil.NatsError)
@@ -130,6 +132,8 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 				Amount: amount,
 			})
 		}
+
+		// send the reservation id created before for this warehouse reservation
 		reservationId := warehouseReservationIds[warehouseId]
 		order.Warehouses = append(order.Warehouses, messages.OrderCreateWarehouse{
 			WarehouseId:   warehouseId,
@@ -154,5 +158,5 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 
 	// NOTE: don't update the stock here, it should be done in the warehouse service that will send back a stock_update event
 
-	_ = msg.Respond([]byte(fmt.Sprintf("reservations sent")))
+	_ = msg.Respond([]byte(fmt.Sprintf("order created")))
 }
