@@ -111,12 +111,13 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 			return
 		}
 
+		_ = r
 		// ACK the reservation response
-		if err = r.Ack(); err != nil {
-			slog.ErrorContext(ctx, "Error acking the response", "error", err)
-			natsutil.Respond(msg, natsutil.NatsError)
-			return
-		}
+		// if err = r.Ack(); err != nil {
+		// 	slog.ErrorContext(ctx, "Error acking the response", "error", err)
+		// 	natsutil.Respond(msg, natsutil.NatsError)
+		// 	return
+		// }
 	}
 
 	var order = messages.OrderCreated{

@@ -49,6 +49,10 @@ func main() {
 		slog.ErrorContext(ctx, "Failed to create stream", "stream", common.StockUpdatesStreamConfig.Name)
 		return
 	}
+	if common.CreateStream(ctx, svc.JetStream(), common.OrdersStreamConfig) != nil {
+		slog.ErrorContext(ctx, "Failed to create stream", "stream", common.OrdersStreamConfig.Name)
+		return
+	}
 
 	svc.RegisterJsHandler(common.StockUpdatesStreamConfig.Name, StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
 	svc.RegisterHandler("order.ping", PingHandler)

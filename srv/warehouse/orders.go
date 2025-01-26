@@ -10,7 +10,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-func OrdersCreateHandler(ctx context.Context, s *common.Service[warehouseState], req jetstream.Msg) error {
+func OrdersCreatedHandler(ctx context.Context, s *common.Service[warehouseState], req jetstream.Msg) error {
 	var msg messages.OrderCreated
 	if err := json.Unmarshal(req.Data(), &msg); err != nil {
 		slog.ErrorContext(
@@ -47,6 +47,7 @@ func OrdersCreateHandler(ctx context.Context, s *common.Service[warehouseState],
 	// TODO: make "s" a map
 	var reservation *Reservation = nil
 	for i, r := range reserv.s {
+		slog.InfoContext(ctx, "Checking reservation", "reservation_id", r.Reservation.ID)
 		if r.Reservation.ID == currentWarehouseRequest.ReservationId {
 			reservation = &reserv.s[i]
 			break

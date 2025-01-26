@@ -56,6 +56,8 @@ func ReservationHandler(ctx context.Context, s *common.Service[warehouseState], 
 	}
 
 	reservations := &s.State().reservation
+	reservations.Lock()
+	defer reservations.Unlock()
 
 	// reservations MUST be locked
 	reservations.s = append(reservations.s, Reservation{
