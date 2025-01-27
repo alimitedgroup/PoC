@@ -46,6 +46,7 @@ func StockUpdateHandler(ctx context.Context, s *common.Service[orderState], req 
 	wStock, ok := stock.m[warehouseId]
 	if !ok {
 		stock.m[warehouseId] = make(map[string]int)
+		wStock = stock.m[warehouseId]
 	}
 
 	for _, row := range msg {

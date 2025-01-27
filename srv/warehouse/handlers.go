@@ -15,6 +15,17 @@ func PingHandler(_ context.Context, _ *common.Service[warehouseState], req *nats
 	_ = req.Respond([]byte("pong"))
 }
 
+func convertToReservationItems(items []messages.ReserveStockItem) []messages.ReservationItem {
+	reservationItems := make([]messages.ReservationItem, len(items))
+	for i, item := range items {
+		reservationItems[i] = messages.ReservationItem{
+			GoodId: item.GoodId,
+			Amount: item.Amount,
+		}
+	}
+	return reservationItems
+}
+
 // ReserveHandler is the handler for `warehouse.reserve`
 func ReserveHandler(ctx context.Context, s *common.Service[warehouseState], req *nats.Msg) {
 	var msg messages.ReserveStock
@@ -48,7 +59,7 @@ func ReserveHandler(ctx context.Context, s *common.Service[warehouseState], req 
 			s.JetStream(),
 			messages.Reservation{
 				ID:            msg.ID,
-				ReservedStock: msg.RequestedStock,
+				ReservedStock: convertToReservationItems(msg.RequestedStock),
 			},
 		)
 
@@ -106,4 +117,6 @@ func AddStockHandler(ctx context.Context, s *common.Service[warehouseState], req
 		// stock MUST be locked
 		stock.s[row.GoodId] = row.Amount
 	}
+
+	_ = req.Respond([]byte("ok"))
 }

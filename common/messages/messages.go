@@ -21,19 +21,23 @@ type StockUpdate []struct {
 }
 
 type Reservation struct {
-	ID            uuid.UUID `json:"id"`
-	ReservedStock []struct {
-		GoodId string `json:"good_id"`
-		Amount int    `json:"amount"`
-	} `json:"reserved_stock"`
+	ID            uuid.UUID         `json:"id"`
+	ReservedStock []ReservationItem `json:"reserved_stock"`
+}
+
+type ReservationItem struct {
+	GoodId string `json:"good_id"`
+	Amount int    `json:"amount"`
 }
 
 type ReserveStock struct {
-	ID             uuid.UUID `json:"id"`
-	RequestedStock []struct {
-		GoodId string `json:"good_id"`
-		Amount int    `json:"amount"`
-	} `json:"requested_stock"`
+	ID             uuid.UUID          `json:"id"`
+	RequestedStock []ReserveStockItem `json:"requested_stock"`
+}
+
+type ReserveStockItem struct {
+	GoodId string `json:"good_id"`
+	Amount int    `json:"amount"`
 }
 
 type CreateOrder struct {
@@ -44,16 +48,16 @@ type CreateOrder struct {
 }
 
 type OrderCreated struct {
-	ID    uuid.UUID          `json:"id"`
-	Items []OrderCreatedItem `json:"items"`
+	ID         uuid.UUID              `json:"id"`
+	Warehouses []OrderCreateWarehouse `json:"warehouses"`
+}
+
+type OrderCreateWarehouse struct {
+	WarehouseId string             `json:"warehouse_id"`
+	Parts       []OrderCreatedItem `json:"parts"`
 }
 
 type OrderCreatedItem struct {
-	GoodId string                 `json:"good_id"`
-	Parts  []OrderCreatedItemPart `json:"parts"`
-}
-
-type OrderCreatedItemPart struct {
-	WarehouseId string `json:"warehouse_id"`
-	Amount      int    `json:"amount"`
+	GoodId string `json:"good_id"`
+	Amount int    `json:"amount"`
 }
