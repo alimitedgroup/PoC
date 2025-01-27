@@ -18,16 +18,16 @@ var (
 )
 
 type model struct {
-	warehouses table.Model
-	help       help.Model
-	keys       keyMap
-	spinner    spinner.Model
-
+	warehouses         table.Model
+	stock              table.Model
+	help               help.Model
+	spinner            spinner.Model
+	keys               keyMap
 	fetchingWarehouses bool
+	fetchingStock      bool
 }
 
 func (m model) Init() tea.Cmd {
-	m.fetchingWarehouses = true
 	return tea.Batch(FetchWarehouses, m.spinner.Tick)
 }
 
@@ -45,13 +45,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case NewWarehousesMsg:
 		m.fetchingWarehouses = false
+		m.keys.Refresh.SetEnabled(true)
+
 		var rows []table.Row
 		for _, warehouse := range msg.warehouses {
 			rows = append(rows, []string{warehouse, "--currently empty--"})
 		}
 		m.warehouses.SetRows(rows)
 
-	// Is it a key press?
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
@@ -64,6 +65,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.warehouses.GotoTop()
 		case key.Matches(msg, m.keys.PageDown):
 			m.warehouses.GotoBottom()
+
+		case key.Matches(msg, m.keys.Refresh):
+			m.keys.Refresh.SetEnabled(false)
+			m.fetchingWarehouses = true
+			return m, FetchWarehouses
 		}
 	}
 
@@ -77,15 +83,16 @@ type keyMap struct {
 	Down     key.Binding
 	PageUp   key.Binding
 	PageDown key.Binding
+	Refresh  key.Binding
 	Quit     key.Binding
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.PageUp, k.PageDown, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.PageUp, k.PageDown, k.Refresh, k.Quit}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{}
+	return [][]key.Binding{k.ShortHelp()}
 }
 
 func (m model) View() string {
@@ -94,31 +101,35 @@ func (m model) View() string {
 	if m.fetchingWarehouses {
 		out += m.spinner.View() + "fetching warehouses "
 	}
+	if m.fetchingStock {
+		out += m.spinner.View() + "fetching stock "
+	}
 	out += m.help.View(m.keys)
 	return out
 }
 
 func main() {
 	flag.Parse()
-	fmt.Println(*apiGateway)
 
-	columns := []table.Column{
-		{Title: "ID", Width: 4},
-		{Title: "Metadata", Width: 19},
-	}
-
-	tab := table.New(table.WithColumns(columns))
-	s := table.DefaultStyles()
-	s.Header = s.Header.
+	tableStyle := table.DefaultStyles()
+	tableStyle.Header = tableStyle.Header.
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("240")).
 		BorderBottom(true).
 		Bold(false)
-	s.Selected = s.Selected.
+	tableStyle.Selected = tableStyle.Selected.
 		Foreground(lipgloss.Color("229")).
 		Background(lipgloss.Color("57")).
 		Bold(false)
-	tab.SetStyles(s)
+
+	warehouses := table.New(table.WithColumns([]table.Column{
+		{Title: "ID", Width: 4},
+		{Title: "Metadata", Width: 19},
+	}), table.WithStyles(tableStyle))
+	stock := table.New(table.WithColumns([]table.Column{
+		{Title: "ID", Width: 4},
+		{Title: "Amount", Width: 19},
+	}), table.WithStyles(tableStyle))
 
 	h := help.New()
 
@@ -139,8 +150,13 @@ func main() {
 			key.WithKeys("pagedown", "G"),
 			key.WithHelp("PgDown/G", "go to bottom"),
 		),
+		Refresh: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("R", "refresh"),
+			key.WithDisabled(),
+		),
 		Quit: key.NewBinding(
-			key.WithKeys("q", "esc", "ctrl+c"),
+			key.WithKeys("q", "ctrl+c"),
 			key.WithHelp("q", "quit"),
 		),
 	}
@@ -150,7 +166,7 @@ func main() {
 		spinner.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("205"))),
 	)
 
-	p := tea.NewProgram(model{tab, h, keys, spin, true})
+	p := tea.NewProgram(model{warehouses, stock, h, spin, keys, true, false})
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
