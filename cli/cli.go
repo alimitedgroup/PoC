@@ -61,6 +61,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case NewStockMsg:
 		m.fetchingStock = false
+		m.keys.GoBack.SetEnabled(true)
 		m.keys.Refresh.SetEnabled(true)
 
 		var rows []table.Row
@@ -84,6 +85,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keys.Refresh):
 			m.keys.Refresh.SetEnabled(false)
+			m.keys.Select.SetEnabled(false)
+			m.keys.GoBack.SetEnabled(false)
 			if m.selectedWarehouse == "" {
 				m.fetchingWarehouses = true
 				return m, FetchWarehouses
@@ -97,6 +100,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.keys.Refresh.SetEnabled(false)
 			m.selectedWarehouse = m.warehouses.SelectedRow()[0]
 			return m, FetchStock(m.selectedWarehouse)
+		case key.Matches(msg, m.keys.GoBack):
+			m.selectedWarehouse = ""
+			m.keys.GoBack.SetEnabled(false)
 		}
 	}
 
@@ -114,11 +120,12 @@ type keyMap struct {
 	PageDown key.Binding
 	Refresh  key.Binding
 	Select   key.Binding
+	GoBack   key.Binding
 	Quit     key.Binding
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Select, k.Up, k.Down, k.PageUp, k.PageDown, k.Refresh, k.Quit}
+	return []key.Binding{k.Select, k.GoBack, k.Up, k.Down, k.PageUp, k.PageDown, k.Refresh, k.Quit}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {
@@ -160,12 +167,12 @@ func main() {
 		Bold(false)
 
 	warehouses := table.New(table.WithColumns([]table.Column{
-		{Title: "ID", Width: 4},
-		{Title: "Metadata", Width: 19},
+		{Title: "ID", Width: 20},
+		{Title: "Metadata", Width: 50},
 	}), table.WithStyles(tableStyle))
 	stock := table.New(table.WithColumns([]table.Column{
-		{Title: "ID", Width: 4},
-		{Title: "Amount", Width: 19},
+		{Title: "ID", Width: 20},
+		{Title: "Amount", Width: 50},
 	}), table.WithStyles(tableStyle))
 
 	h := help.New()
@@ -195,6 +202,11 @@ func main() {
 		Select: key.NewBinding(
 			key.WithKeys("enter"),
 			key.WithHelp("⏎", "view stock"),
+			key.WithDisabled(),
+		),
+		GoBack: key.NewBinding(
+			key.WithKeys("backspace", "L"),
+			key.WithHelp(" ⌫ ", "go back"),
 			key.WithDisabled(),
 		),
 		Quit: key.NewBinding(
