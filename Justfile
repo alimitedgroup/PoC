@@ -28,3 +28,6 @@ warehouse $OTLP_URL="localhost:4317" $NATS_URL="nats://nats:4222" $WAREHOUSE_ID=
 
 api $OTLP_URL="localhost:4317": up
     go run github.com/alimitedgroup/PoC/srv/api_gateway
+
+cli *args:
+    go run github.com/alimitedgroup/PoC/cli {{args}}
