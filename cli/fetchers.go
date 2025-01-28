@@ -6,7 +6,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"log"
 	"net/http"
-	"time"
 )
 
 var client http.Client
@@ -32,8 +31,6 @@ func FetchWarehouses() tea.Msg {
 		log.Fatal(err)
 	}
 
-	time.Sleep(1 * time.Second)
-
 	return NewWarehousesMsg{warehouses}
 }
 
@@ -50,8 +47,6 @@ func FetchStock(warehouse string) tea.Cmd {
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		time.Sleep(1 * time.Second)
 
 		return NewStockMsg{stock}
 	}
