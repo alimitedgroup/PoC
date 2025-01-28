@@ -34,12 +34,12 @@ install:
 ```sh
 just reset
 
-nats request catalog.create '{"name": "hat"}'
-nats request catalog.list ""
-HAT_ID={{hat_good_id_here}}
-nats request "warehouse.add_stock.41" '[{"good_id": "'"$HAT_ID"'", "amount": 10}]'
+# nats request catalog.create '{"name": "hat"}'
+# nats request catalog.list ""
+curl -X POST localhost:80/stock/41 -H "Content-Type: application/json" -d '[{"good_id": "blue-hat-231", "amount": 10}]'
 curl localhost:80/warehouses
 curl localhost:80/stock/41
-nats request "order.create" '{"items":[{"good_id": "'"$HAT_ID"'", "amount": 5}]}'
+curl -X POST localhost:80/orders -H "Content-Type: application/json" -d '{"items":[{"good_id": "blue-hat-231", "amount": 5}]}'
 curl localhost:80/stock/41
+curl localhost:80/orders
 ```

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/alimitedgroup/PoC/common"
 	"github.com/alimitedgroup/PoC/common/messages"
@@ -84,16 +85,20 @@ func StockPostRoute(s *common.Service[ApiGatewayState]) gin.HandlerFunc {
 
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
+			c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
 
-		err = s.NatsConn().Publish(
+		r, err := s.NatsConn().Request(
 			fmt.Sprintf("warehouse.add_stock.%s", warehouseId),
 			body,
+			time.Second*2,
 		)
 		if err != nil {
+			c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
+		c.JSON(http.StatusOK, map[string]any{"response": string(r.Data)})
 	}
 }
 
