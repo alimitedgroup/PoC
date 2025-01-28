@@ -19,9 +19,9 @@ var StockUpdatesStreamConfig = jetstream.StreamConfig{
 	Storage:  jetstream.FileStorage,
 }
 
-var OdersStreamConfig = jetstream.StreamConfig{
+var OrdersStreamConfig = jetstream.StreamConfig{
 	Name:     "orders",
-	Subjects: []string{"orders.>"},
+	Subjects: []string{"orders", "orders.>"},
 	Storage:  jetstream.FileStorage,
 }
 

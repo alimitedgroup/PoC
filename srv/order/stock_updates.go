@@ -50,7 +50,7 @@ func StockUpdateHandler(ctx context.Context, s *common.Service[orderState], req 
 	}
 
 	for _, row := range msg {
-		wStock[row.GoodId] = row.Amount
+		wStock[row.GoodId] += row.Amount
 	}
 
 	slog.InfoContext(

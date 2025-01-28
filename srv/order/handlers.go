@@ -41,7 +41,7 @@ func CreateOrderHandler(ctx context.Context, s *common.Service[orderState], msg 
 	}
 	var usedStock = make(map[string]map[string]int)
 
-	// NOTE: naive implementation, use all the stock of the warehouse to fullfill the order, it not enought
+	// NOTE: naive implementation, use all the stock of the warehouse to fulfill the order, if it's not enough
 	// check each warehouse for stock
 	for warehouseId, m := range state.stock.m {
 		if totalRemainingStock == 0 {
