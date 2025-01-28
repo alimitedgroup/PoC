@@ -51,9 +51,9 @@ func StockUpdateHandler(_ context.Context, s *common.Service[ApiGatewayState], m
 			if !loaded {
 				oldValue = xsync.NewMapOf[string, int]()
 			}
-			old, _ := oldValue.LoadOrCompute(row.GoodId, func() int { return 0 })
+			// old, _ := oldValue.LoadOrCompute(row.GoodId, func() int { return 0 })
 			newValue = oldValue
-			newValue.Store(row.GoodId, row.Amount+old)
+			newValue.Store(row.GoodId, row.Amount)
 			return
 		})
 	}
