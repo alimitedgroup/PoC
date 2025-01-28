@@ -10,7 +10,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"os"
-	"strconv"
 )
 
 var (
@@ -65,8 +64,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.keys.Refresh.SetEnabled(true)
 
 		var rows []table.Row
-		for good, amount := range msg.stock {
-			rows = append(rows, []string{good, strconv.Itoa(amount)})
+		for id, row := range msg.stock {
+			rows = append(rows, []string{id, row[0], row[1]})
 		}
 		m.stock.SetRows(rows)
 
@@ -171,8 +170,9 @@ func main() {
 		{Title: "Metadata", Width: 50},
 	}), table.WithStyles(tableStyle))
 	stock := table.New(table.WithColumns([]table.Column{
-		{Title: "ID", Width: 20},
-		{Title: "Amount", Width: 50},
+		{Title: "ID", Width: 36},
+		{Title: "Name", Width: 10},
+		{Title: "Amount", Width: 24},
 	}), table.WithStyles(tableStyle))
 
 	h := help.New()
