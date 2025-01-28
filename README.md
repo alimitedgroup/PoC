@@ -36,7 +36,10 @@ just reset
 
 nats request catalog.create '{"name": "hat"}'
 nats request catalog.list ""
-nats request "warehouse.add_stock.41" '[{"good_id": "{{put_the_hat_good_id_here}}", "amount": 10}]'
+HAT_ID={{hat_good_id_here}}
+nats request "warehouse.add_stock.41" '[{"good_id": "'"$HAT_ID"'", "amount": 10}]'
 curl localhost:80/warehouses
+curl localhost:80/stock/41
+nats request "order.create" '{"items":[{"good_id": "'"$HAT_ID"'", "amount": 5}]}'
 curl localhost:80/stock/41
 ```

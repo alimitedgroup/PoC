@@ -25,6 +25,9 @@ services:
     environment:
       - NATS_URL=nats://nats:4222
       - OTLP_URL=collector:4317
+    depends_on:
+      - nats
+      - collector
 
   catalog:
     build: { args: { SERVICE: catalog } }

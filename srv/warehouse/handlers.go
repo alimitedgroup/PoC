@@ -32,6 +32,7 @@ func ReserveHandler(ctx context.Context, s *common.Service[warehouseState], req 
 	err := json.Unmarshal(req.Data, &msg)
 	if err != nil {
 		_ = req.Respond([]byte(err.Error()))
+		return
 	}
 
 	stock := &s.State().stock
@@ -62,6 +63,17 @@ func ReserveHandler(ctx context.Context, s *common.Service[warehouseState], req 
 				ReservedStock: convertToReservationItems(msg.RequestedStock),
 			},
 		)
+		if err != nil {
+			slog.ErrorContext(
+				ctx,
+				"Error publishing reservation",
+				"error", err,
+				"subject", req.Subject,
+				"message", req.Header["Nats-Msg-Id"][0],
+			)
+			_ = req.Respond([]byte("error"))
+			return
+		}
 
 		for _, s := range msg.RequestedStock {
 			stock.r[s.GoodId] += s.Amount
@@ -95,10 +107,8 @@ func AddStockHandler(ctx context.Context, s *common.Service[warehouseState], req
 	defer stock.Unlock()
 
 	// msg contains only increment in stock quantity, transform to absolute values using the stock state
-	for _, row := range msg {
-		prevAmount := stock.s[row.GoodId]
-		stock.s[row.GoodId] += row.Amount
-		row.Amount += prevAmount
+	for i, row := range msg {
+		msg[i].Amount += stock.s[row.GoodId]
 	}
 
 	err = SendStockUpdate(ctx, s.JetStream(), &msg)

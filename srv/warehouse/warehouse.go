@@ -82,18 +82,23 @@ func InitWarehouse(ctx context.Context, srv *common.Service[warehouseState]) err
 	if err != nil {
 		return fmt.Errorf("failed to create stock_updates stream: %w", err)
 	}
-
-	srv.RegisterJsHandlerExisting(common.StockUpdatesStreamConfig.Name, StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
-	slog.InfoContext(ctx, "Stock updates handled", "stock", srv.State().stock.r)
-
+	err = common.CreateStream(ctx, srv.JetStream(), common.OrdersStreamConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create orders stream: %w", err)
+	}
 	err = common.CreateStream(ctx, srv.JetStream(), common.ReservationStreamConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create reservations stream: %w", err)
 	}
 
-	srv.RegisterJsHandlerExisting(common.ReservationStreamConfig.Name, ReservationHandler, common.WithSubjectFilter("reservations.>"))
+	srv.RegisterJsHandlerExisting(common.StockUpdatesStreamConfig.Name, StockUpdateHandler, common.WithSubjectFilter("stock_updates.>"))
+	slog.InfoContext(ctx, "Stock updates handled", "stock", srv.State().stock.r)
+
+	srv.RegisterJsHandler(common.ReservationStreamConfig.Name, ReservationHandler, common.WithSubjectFilter("reservations.>"))
 	slog.InfoContext(ctx, "Reservations handled", "reservation", srv.State().reservation.s)
 	go removeReservationsLoop(ctx, &srv.State().reservation)
+
+	srv.RegisterJsHandler(common.OrdersStreamConfig.Name, OrdersCreatedHandler, common.WithSubjectFilter("orders"))
 
 	return nil
 }
