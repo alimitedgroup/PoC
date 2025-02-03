@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"os"
+	"time"
 )
 
 var (
@@ -17,10 +18,20 @@ var (
 	apiGateway = flag.String("api-gateway", "http://localhost", "API Gateway URL")
 )
 
+type TickMsg struct {
+	time time.Time
+}
+
+func doTick() tea.Cmd {
+	return tea.Tick(3*time.Second, func(t time.Time) tea.Msg {
+		return TickMsg{time: t}
+	})
+}
+
 type model struct {
+	help       help.Model
 	warehouses table.Model
 	stock      table.Model
-	help       help.Model
 	spinner    spinner.Model
 	keys       keyMap
 	// selectedWarehouse is empty if no warehouse is selected (and we're
@@ -32,7 +43,7 @@ type model struct {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(FetchWarehouses, m.spinner.Tick)
+	return tea.Batch(FetchWarehouses, m.spinner.Tick, doTick())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -50,7 +61,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case NewWarehousesMsg:
 		m.fetchingWarehouses = false
-		m.keys.Refresh.SetEnabled(true)
 
 		var rows []table.Row
 		for _, warehouse := range msg.warehouses {
@@ -61,13 +71,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case NewStockMsg:
 		m.fetchingStock = false
 		m.keys.GoBack.SetEnabled(true)
-		m.keys.Refresh.SetEnabled(true)
 
 		var rows []table.Row
 		for id, row := range msg.stock {
 			rows = append(rows, []string{id, row[0], row[1]})
 		}
 		m.stock.SetRows(rows)
+
+	case TickMsg:
+		m.keys.Select.SetEnabled(false)
+		m.keys.GoBack.SetEnabled(false)
+		if m.selectedWarehouse == "" {
+			m.fetchingWarehouses = true
+			return m, tea.Batch(doTick(), FetchWarehouses)
+		} else {
+			m.fetchingStock = true
+			return m, tea.Batch(doTick(), FetchStock(m.selectedWarehouse))
+		}
 
 	case tea.KeyMsg:
 		switch {
@@ -82,27 +102,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.PageDown):
 			m.warehouses.GotoBottom()
 
-		case key.Matches(msg, m.keys.Refresh):
-			m.keys.Refresh.SetEnabled(false)
-			m.keys.Select.SetEnabled(false)
-			m.keys.GoBack.SetEnabled(false)
-			if m.selectedWarehouse == "" {
-				m.fetchingWarehouses = true
-				return m, FetchWarehouses
-			} else {
-				m.fetchingStock = true
-				return m, FetchStock(m.selectedWarehouse)
-			}
 		case key.Matches(msg, m.keys.Select):
 			m.fetchingStock = true
 			m.keys.Select.SetEnabled(false)
-			m.keys.Refresh.SetEnabled(false)
 			m.selectedWarehouse = m.warehouses.SelectedRow()[0]
 			return m, FetchStock(m.selectedWarehouse)
 		case key.Matches(msg, m.keys.GoBack):
 			m.selectedWarehouse = ""
 			m.keys.GoBack.SetEnabled(false)
 		}
+
 	}
 
 	if m.selectedWarehouse == "" && m.warehouses.SelectedRow() != nil {
@@ -117,14 +126,13 @@ type keyMap struct {
 	Down     key.Binding
 	PageUp   key.Binding
 	PageDown key.Binding
-	Refresh  key.Binding
 	Select   key.Binding
 	GoBack   key.Binding
 	Quit     key.Binding
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Select, k.GoBack, k.Up, k.Down, k.PageUp, k.PageDown, k.Refresh, k.Quit}
+	return []key.Binding{k.Select, k.GoBack, k.Up, k.Down, k.PageUp, k.PageDown, k.Quit}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {
@@ -193,11 +201,6 @@ func main() {
 		PageDown: key.NewBinding(
 			key.WithKeys("pagedown", "G"),
 			key.WithHelp("PgDown/G", "go to bottom"),
-		),
-		Refresh: key.NewBinding(
-			key.WithKeys("r"),
-			key.WithHelp("R", "refresh"),
-			key.WithDisabled(),
 		),
 		Select: key.NewBinding(
 			key.WithKeys("enter"),
