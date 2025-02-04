@@ -61,10 +61,7 @@ func main() {
 
 	svc := common.NewService(ctx, nc, catalogState{db: pool})
 
-	kv, err := svc.JetStream().CreateOrUpdateKeyValue(ctx, jetstream.KeyValueConfig{
-		Bucket:  "catalog",
-		Storage: jetstream.FileStorage,
-	})
+	kv, err := svc.JetStream().CreateOrUpdateKeyValue(ctx, common.CatalogKeyValueConfig)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to create key-value store", "error", err)
 		return

@@ -7,6 +7,11 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
+var CatalogKeyValueConfig = jetstream.KeyValueConfig{
+	Bucket:  "catalog",
+	Storage: jetstream.FileStorage,
+}
+
 var ReservationStreamConfig = jetstream.StreamConfig{
 	Name:     "reservations",
 	Subjects: []string{"reservations.>"},
