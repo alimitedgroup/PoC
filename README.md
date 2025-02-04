@@ -34,9 +34,9 @@ install:
 ```sh
 just reset
 
-nats request catalog.create '{"name": "hat"}'
+curl -X POST localhost:80/catalog -H "Content-Type: application/json" -d '{"name": "hat"}'
 HAT_ID=
-nats request catalog.list ""
+curl localhost:80/catalog
 curl -X POST localhost:80/stock/41 -H "Content-Type: application/json" -d '[{"good_id": "'$HAT_ID'", "amount": 20}]'
 curl localhost:80/warehouses
 curl localhost:80/stock/41

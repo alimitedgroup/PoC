@@ -160,7 +160,7 @@ func UpdateHandler(ctx context.Context, s *common.Service[catalogState], req *na
 	}
 }
 
-// DeleteHandler is the handler for `catalog.update`
+// DeleteHandler is the handler for `catalog.delete`
 func DeleteHandler(ctx context.Context, s *common.Service[catalogState], req *nats.Msg) {
 	var msg messages.GetCatalogItem
 	err := json.Unmarshal(req.Data, &msg)
